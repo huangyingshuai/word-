@@ -125,7 +125,15 @@ def preview_document(uploaded_file, enable_title_regex):
             st.code("\n".join(tree_data), language="text")
             
            # 手动统计标题数量，不需要pandas
-title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}
+try:
+    # 某些代码
+    title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}  # 第128行
+    # ...
+except Exception as e:  # ✅ 加上这行
+    # 可选：打印错误信息，方便调试
+    print(f"处理标题时出错: {e}")
+    # 或者初始化一个默认值
+    title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}
 for record in preview_records:
     level = record["识别结果"]
     if level in title_count:
