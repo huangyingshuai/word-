@@ -1,3 +1,4 @@
+--only-binary :all:
 # 核心Web框架
 streamlit>=1.32.0,<1.39.0
 # Word文档处理核心
