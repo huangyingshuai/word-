@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import copy
 from datetime import datetime
 from io import BytesIO
@@ -125,7 +124,12 @@ def preview_document(uploaded_file, enable_title_regex):
                     tree_data.append(f"    ├─ {record['文本内容']}")
             st.code("\n".join(tree_data), language="text")
             
-            title_count = pd.DataFrame(preview_records)["识别结果"].value_counts()
+           # 手动统计标题数量，不需要pandas
+title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}
+for record in preview_records:
+    level = record["识别结果"]
+    if level in title_count:
+        title_count[level] += 1
             st.write("📊 识别统计：")
             cols = st.columns(3)
             cols[0].metric("一级标题", title_count.get("一级标题", 0))
@@ -220,9 +224,8 @@ def main():
             if st.button("🔄 重置为默认格式", use_container_width=True):
                 reset_template()
         
-        st.subheader("当前模板格式预览")
-        df = pd.DataFrame(st.session_state.current_config).T
-        st.dataframe(df, use_container_width=True)
+       st.subheader("当前模板格式预览")
+st.dataframe(st.session_state.current_config, use_container_width=True)
 
     with step_tabs[1]:
         st.subheader("精细化格式自定义（可选，不修改则使用模板默认值）")
