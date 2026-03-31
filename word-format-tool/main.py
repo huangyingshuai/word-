@@ -125,12 +125,12 @@ def preview_document(uploaded_file, enable_title_regex):
             st.code("\n".join(tree_data), language="text")
             
            # 手动统计标题数量，不需要pandas
-# 从这行开始，完整替换你的代码（128行起）
-try:
-    # 初始化标题统计
-    title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}
-    
-    # 统计识别结果
+# -------------- 以下整段替换你 128行开始的所有代码 --------------
+# 初始化统计变量（不用try，直接写，彻底规避语法错误）
+title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}
+
+# 安全遍历识别结果
+if 'preview_records' in locals() or 'preview_records' in globals():
     for record in preview_records:
         level = record["识别结果"]
         if level in title_count:
@@ -142,10 +142,7 @@ try:
     cols[0].metric("一级标题", title_count.get("一级标题", 0))
     cols[1].metric("二级标题", title_count.get("二级标题", 0))
     cols[2].metric("三级标题", title_count.get("三级标题", 0))
-
-except Exception as e:
-    # 唯一的异常处理，对应上面的try
-    st.error(f"预览失败：{str(e)}")
+else:
     st.info("未识别到标题")
 def show_process_result(result, stats, process_time, original_filename):
     """展示处理结果"""
