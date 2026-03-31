@@ -83,7 +83,7 @@ def format_editor(title, level, show_indent):
     if show_indent:
         cfg["indent"] = st.number_input("首行缩进(字符)", 0, 4, cfg["indent"], key=f"{level}_i_{v}")
     
-    st.session_state.current_config[level] = cfg
+    st.session_state.current_config[cfg] = cfg
     st.divider()
 
 def preview_document(uploaded_file, enable_title_regex):
@@ -124,26 +124,23 @@ def preview_document(uploaded_file, enable_title_regex):
                     tree_data.append(f"    ├─ {record['文本内容']}")
             st.code("\n".join(tree_data), language="text")
             
-           # 手动统计标题数量，不需要pandas
-# -------------- 以下整段替换你 128行开始的所有代码 --------------
-# 初始化统计变量（不用try，直接写，彻底规避语法错误）
-title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}
+            # 修复：正确缩进，无语法错误的标题统计
+            title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}
+            for record in preview_records:
+                level = record["识别结果"]
+                if level in title_count:
+                    title_count[level] += 1
 
-# 安全遍历识别结果
-if 'preview_records' in locals() or 'preview_records' in globals():
-    for record in preview_records:
-        level = record["识别结果"]
-        if level in title_count:
-            title_count[level] += 1
+            st.write("📊 识别统计：")
+            cols = st.columns(3)
+            cols[0].metric("一级标题", title_count.get("一级标题", 0))
+            cols[1].metric("二级标题", title_count.get("二级标题", 0))
+            cols[2].metric("三级标题", title_count.get("三级标题", 0))
+        else:
+            st.info("未识别到标题")
+    except Exception as e:
+        st.error(f"预览失败：{str(e)}")
 
-    # 展示统计数据
-    st.write("📊 识别统计：")
-    cols = st.columns(3)
-    cols[0].metric("一级标题", title_count.get("一级标题", 0))
-    cols[1].metric("二级标题", title_count.get("二级标题", 0))
-    cols[2].metric("三级标题", title_count.get("三级标题", 0))
-else:
-    st.info("未识别到标题")
 def show_process_result(result, stats, process_time, original_filename):
     """展示处理结果"""
     st.balloons()
@@ -228,8 +225,8 @@ def main():
             if st.button("🔄 重置为默认格式", use_container_width=True):
                 reset_template()
         
-       st.subheader("当前模板格式预览")
-st.dataframe(st.session_state.current_config, use_container_width=True)
+        st.subheader("当前模板格式预览")
+        st.dataframe(st.session_state.current_config, use_container_width=True)
 
     with step_tabs[1]:
         st.subheader("精细化格式自定义（可选，不修改则使用模板默认值）")
