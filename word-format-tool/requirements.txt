@@ -1,8 +1,14 @@
-# 核心Web框架：只锁最低版本，不锁最高，自动适配Python 3.12
-streamlit>=1.38.0
-# Word文档处理：兼容所有3.x版本
+# 强制使用预编译包，不进行源码编译（核心！）
+--only-binary :all:
+
+#  Streamlit：用最稳定的通用版本，不锁范围
+streamlit
+
+# Word文档处理核心
 python-docx>=0.8.11
-# Pillow：锁10.4.0（Python 3.12原生支持，有预编译包）
-pillow==10.4.0
-# 基础依赖
+
+# Pillow：直接用最新稳定版，它会自动适配Python 3.12，有预编译包
+pillow
+
+# 其他必要依赖
 numpy>=1.26.0
