@@ -1,9 +1,8 @@
---only-binary :all:
-# 核心Web框架
-streamlit>=1.32.0,<1.39.0
+# 核心Web框架（适配Python 3.12的稳定版）
+streamlit>=1.38.0,<1.40.0
 # Word文档处理核心
-python-docx>=0.8.11
-# 锁定Pillow兼容版本，彻底解决编译失败问题
-pillow==10.3.0
-# 其他你项目用到的依赖
-numpy>=1.26.0
+python-docx>=0.8.11,<1.0.0
+# 适配Python 3.12的Pillow稳定版（有预编译包，无需编译）
+pillow>=10.4.0,<11.0.0
+# 基础数值计算（可选，根据你的项目实际情况保留）
+numpy>=1.26.0,<2.0.0
