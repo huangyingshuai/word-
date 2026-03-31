@@ -9,7 +9,7 @@
 - 多文档批量处理，大幅提升效率
 
 ## 🚀 快速体验
-在线体验地址：[这里后续填你的Streamlit Cloud部署链接]
+在线体验地址：https://word-paiban.streamlit.app/
 
 本地运行步骤：
 1. 克隆仓库
