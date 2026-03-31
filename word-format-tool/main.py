@@ -126,27 +126,25 @@ def preview_document(uploaded_file, enable_title_regex):
             
            # 手动统计标题数量，不需要pandas
 try:
-    # 某些代码
-    title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}  # 第128行
-    # ...
-except Exception as e:  # ✅ 加上这行
-    # 可选：打印错误信息，方便调试
-    print(f"处理标题时出错: {e}")
-    # 或者初始化一个默认值
+    # 初始化标题统计
     title_count = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0}
-for record in preview_records:
-    level = record["识别结果"]
-    if level in title_count:
-        title_count[level] += 1
-            st.write("📊 识别统计：")
-            cols = st.columns(3)
-            cols[0].metric("一级标题", title_count.get("一级标题", 0))
-            cols[1].metric("二级标题", title_count.get("二级标题", 0))
-            cols[2].metric("三级标题", title_count.get("三级标题", 0))
-        else:
-            st.info("未识别到标题")
-    except Exception as e:
-        st.error(f"预览失败：{str(e)}")
+    # 统计识别结果
+    for record in preview_records:
+        level = record["识别结果"]
+        if level in title_count:
+            title_count[level] += 1
+
+    # 展示统计数据（修复缩进）
+    st.write("📊 识别统计：")
+    cols = st.columns(3)
+    cols[0].metric("一级标题", title_count.get("一级标题", 0))
+    cols[1].metric("二级标题", title_count.get("二级标题", 0))
+    cols[2].metric("三级标题", title_count.get("三级标题", 0))
+
+# 统一异常捕获（唯一的except，对应最上方的try）
+except Exception as e:
+    st.error(f"预览失败：{str(e)}")
+    st.info("未识别到标题")
 
 def show_process_result(result, stats, process_time, original_filename):
     """展示处理结果"""
