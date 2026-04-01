@@ -37,9 +37,9 @@ def get_doc_from_uploaded(uploaded_file):
     from utils.file_utils import get_doc_from_uploaded
     return get_doc_from_uploaded(uploaded_file)
 
-def get_title_level(para, enable_title_regex, last_levels):
+def get_title_level(para, enable_title_regex, last_levels, prev_para_text=None):
     from core.title_recognizer import get_title_level
-    return get_title_level(para.text.strip(), enable_title_regex)
+    return get_title_level(para.text.strip(), enable_title_regex, prev_para_text)
 
 def process_doc(file, config, number_config, enable_title_regex, force_style, keep_spacing, clear_blank, max_blank):
     from core.processor import process_doc
@@ -108,12 +108,17 @@ def preview_document(uploaded_file, enable_title_regex):
     last_levels = [0,0,0]
     preview_records = []
     idx = 0
+    # 新增：记录上一段文本，用于上下文校验
+    prev_text = None
 
     for para in doc.paragraphs:
         if not para.text.strip():
             continue
-        level = get_title_level(para, enable_title_regex, last_levels)
+        # 传入上一段文本，进行上下文校验
+        level = get_title_level(para, enable_title_regex, last_levels, prev_text)
         preview_records.append({"序号":idx,"位置":"正文","级别":level,"文本":para.text.strip()[:80]})
+        # 更新上一段文本
+        prev_text = para.text.strip()
         idx +=1
 
     for t_idx, table in enumerate(doc.tables):
@@ -122,7 +127,7 @@ def preview_document(uploaded_file, enable_title_regex):
                 for para in cell.paragraphs:
                     if not para.text.strip():
                         continue
-                    level = get_title_level(para, enable_title_regex, last_levels)
+                    level = get_title_level(para, enable_title_regex, last_levels, prev_text)
                     preview_records.append({"序号":idx,"position":f"表格{t_idx+1}","级别":level,"文本":para.text.strip()[:80]})
                     idx +=1
 
