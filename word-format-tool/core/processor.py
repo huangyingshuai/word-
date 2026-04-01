@@ -48,12 +48,16 @@ def process_doc(file, config, number_config, enable_title_regex,
 
     from core.title_recognizer import get_title_level
 
-    # 处理正文段落
+    # 处理正文段落（新增：上下文校验，避免正文列表误识别）
+    prev_text = None  # 记录上一段文本，用于上下文校验
     for para in doc.paragraphs:
         if is_protected_para(para):
             continue
-        level = get_title_level(para.text, enable_title_regex)
+        # 传入上一段文本，进行上下文校验
+        level = get_title_level(para.text, enable_title_regex, prev_text)
         stats[level] += 1
+        # 更新上一段文本
+        prev_text = para.text.strip()
 
         style = config[level]
         pt = size_to_pt(style["size"])
