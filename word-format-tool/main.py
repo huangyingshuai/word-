@@ -7,7 +7,6 @@ from docx import Document
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
-from sentence_transformers import SentenceTransformer, util
 
 # ====================== 全局配置与常量 ======================
 # 专业术语白名单（永不修改）
@@ -31,9 +30,9 @@ TEMPLATE_LIBRARY = {
 
 # 降重强度配置
 REWRITE_LEVEL = {
-    "轻度降重": {"synonym": True, "sentence_reorder": False, "structure_change": False, "similarity_threshold": 0.95},
-    "标准降重": {"synonym": True, "sentence_reorder": True, "structure_change": False, "similarity_threshold": 0.90},
-    "强力降重": {"synonym": True, "sentence_reorder": True, "structure_change": True, "similarity_threshold": 0.85}
+    "轻度降重": {"synonym": True, "sentence_reorder": False, "structure_change": False},
+    "标准降重": {"synonym": True, "sentence_reorder": True, "structure_change": False},
+    "强力降重": {"synonym": True, "sentence_reorder": True, "structure_change": True}
 }
 
 # 同义词替换词典（学术场景专用）
@@ -61,17 +60,6 @@ FONT_SIZE_MAP = {
 }
 EN_FONT = "Times New Roman"  # 英文/数字固定字体
 APP_NAME = "论文智能降重+一键排版工具（河北科技大学专属）"
-
-# ====================== 核心工具函数初始化 ======================
-# 语义相似度模型（本地加载，无需API）
-@st.cache_resource
-def load_similarity_model():
-    try:
-        return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    except:
-        return None
-
-model = load_similarity_model()
 
 # ====================== 1. 标题层级精准识别 ======================
 def get_title_level(para_text):
@@ -103,13 +91,16 @@ def is_white_text(text):
         return True
     return False
 
-def check_similarity(original, modified):
-    """校验语义相似度，确保不改原意"""
-    if not model:
-        return 1.0  # 无模型时默认通过
-    emb1 = model.encode(original, convert_to_tensor=True)
-    emb2 = model.encode(modified, convert_to_tensor=True)
-    return float(util.cos_sim(emb1, emb2)[0][0])
+def check_semantic_keep(original, modified):
+    """规则化语义保持校验，确保不改原意（无AI模型依赖）"""
+    # 提取核心关键词（名词、动词）
+    original_keywords = set(re.findall(r'[\u4e00-\u9fa5]{2,}', original))
+    modified_keywords = set(re.findall(r'[\u4e00-\u9fa5]{2,}', modified))
+    # 核心关键词重合度≥70%，判定为语义保持
+    if not original_keywords:
+        return 1.0
+    overlap = original_keywords & modified_keywords
+    return len(overlap) / len(original_keywords)
 
 def rewrite_sentence(sentence, level_config):
     """单句降重，严格遵循降重方法论"""
@@ -143,12 +134,12 @@ def rewrite_sentence(sentence, level_config):
             modified = re.sub(r'在(.*?)中', f'结合{datetime.now().year}年行业实际发展情况，在\g<1>场景中', modified)
             rewrite_type = "结构调整+场景限定补充"
 
-    # 语义相似度校验，不达标则回退
-    similarity = check_similarity(original, modified)
-    if similarity < level_config["similarity_threshold"]:
-        return original, "原文保留（语义相似度不达标）", 1.0
+    # 语义保持校验，不达标则回退
+    semantic_score = check_semantic_keep(original, modified)
+    if semantic_score < 0.7:
+        return original, "原文保留（语义重合度不达标）", 1.0
 
-    return modified, rewrite_type, similarity
+    return modified, rewrite_type, round(semantic_score, 4)
 
 def rewrite_paragraph(text, level_config):
     """整段降重，逐句处理"""
@@ -160,14 +151,14 @@ def rewrite_paragraph(text, level_config):
         if not sent.strip():
             new_sentences.append(sent)
             continue
-        new_sent, rewrite_type, similarity = rewrite_sentence(sent, level_config)
+        new_sent, rewrite_type, semantic_score = rewrite_sentence(sent, level_config)
         new_sentences.append(new_sent)
         if sent != new_sent:
             change_log.append({
                 "original": sent,
                 "modified": new_sent,
                 "type": rewrite_type,
-                "similarity": round(similarity, 4)
+                "semantic_score": semantic_score
             })
 
     return "".join(new_sentences), change_log
@@ -287,7 +278,7 @@ def generate_report(changes, rewrite_level):
     for i, change in enumerate(changes[:100]):  # 最多显示100条
         report += f"### 修改记录 #{i+1}\n"
         report += f"📋 修改类型：{change['type']}\n"
-        report += f"📊 语义相似度：{change['similarity']}\n"
+        report += f"📊 语义重合度：{change['semantic_score']}\n"
         report += f"原文：{change['original']}\n"
         report += f"改后：{change['modified']}\n\n"
 
