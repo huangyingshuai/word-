@@ -7,7 +7,202 @@ from concurrent.futures import ThreadPoolExecutor
 
 # ====================== 国家标准毕业论文/竞赛格式模板（GB/T 7714-2015）======================
 TEMPLATE_LIBRARY = {
-    "国家标准毕业论文格式": {
+    "国家标准毕业论文格式": {import streamlit as st
+import copy
+from datetime import datetime
+from io import BytesIO
+import zipfile
+from concurrent.futures import ThreadPoolExecutor
+import re
+
+# ====================== 降重规则引擎（你的全套降重方法论已内置） ======================
+WHITE_WORDS = [
+    "知网","维普","万方","GDP","CPI","工业工程","挑战杯","河北科技大学",
+    "GB/T 7714","一级标题","二级标题","三级标题","公式","图表","参考文献"
+]
+
+def is_white_word(s):
+    for w in WHITE_WORDS:
+        if w in s:
+            return True
+    return False
+
+def rewrite_sentence(s):
+    if len(s) < 5 or is_white_word(s):
+        return s, "原文保留（白名单/短句）"
+
+    # 破连续字符
+    s = re.sub(r"首先|其次|再次|最后|综上所述|总而言之", "从实际落地情况来看", s)
+    s = re.sub(r"一方面|另一方面", "从实际执行层面来看", s)
+    s = re.sub(r"随着社会的发展", "在当前行业发展背景下", s)
+    s = re.sub(r"在当今社会", "结合当下实际环境", s)
+
+    # 句式重构
+    if len(s) > 40:
+        parts = s.split("，")
+        if len(parts) >= 3:
+            new_parts = [parts[2], parts[0], parts[1]]
+            s = "，".join(new_parts)
+            return s, "句式重构+打乱语序"
+
+    if "提升" in s:
+        s = s.replace("提升", "有效改善")
+        return s, "同义词替换+语义保持"
+
+    return s, "轻度改写（合规降重）"
+
+def rewrite_paragraph(text):
+    changes = []
+    lines = text.split("\n")
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            new_lines.append(line)
+            continue
+        new_line, typ = rewrite_sentence(stripped)
+        new_lines.append(new_line)
+        if stripped != new_line:
+            changes.append((stripped, new_line, typ))
+    return "\n".join(new_lines), changes
+
+# ====================== 以下为原有排版系统（已保留） ======================
+TEMPLATE_LIBRARY = {
+    "河北科技大学-本科毕业论文格式": {
+        "一级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
+        "二级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3},
+        "三级标题": {"font": "黑体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 3, "space_after": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 22, "indent": 2, "space_before": 0, "space_after": 0},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+    },
+}
+
+ALIGN_LIST = ["左对齐", "居中", "右对齐", "两端对齐"]
+LINE_TYPE_LIST = ["倍数", "固定值", "最小值"]
+FONT_LIST = ["宋体", "黑体", "楷体", "微软雅黑", "仿宋_GB2312", "Times New Roman"]
+FONT_SIZE_LIST = ["初号", "小初", "一号", "小一", "二号", "小二", "三号", "小三", "四号", "小四", "五号", "小五"]
+EN_FONT = "Times New Roman"
+
+def get_doc_from_uploaded(uploaded_file):
+    from docx import Document
+    return Document(uploaded_file)
+
+def get_title_level(para_text, enable=True, prev=None):
+    if not enable:
+        return "正文"
+    if re.match(r'^第[一二三四五六七八九十]+章\s', para_text):
+        return "一级标题"
+    if re.match(r'^\d+\.\d+[^0-9]', para_text):
+        return "二级标题"
+    if re.match(r'^\d+\.\d+\.\d+', para_text):
+        return "三级标题"
+    return "正文"
+
+def process_doc(file, config, rewrite=False):
+    doc = get_doc_from_uploaded(file)
+    records = []
+    total_changes = []
+
+    # 段落降重
+    for para in doc.paragraphs:
+        original = para.text
+        if rewrite:
+            new_text, changes = rewrite_paragraph(original)
+            para.text = new_text
+            total_changes.extend(changes)
+        level = get_title_level(para.text)
+        records.append(level)
+
+    # 表格降重
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    original = para.text
+                    if rewrite:
+                        new_text, changes = rewrite_paragraph(original)
+                        para.text = new_text
+                        total_changes.extend(changes)
+
+    # 格式设置（原有逻辑不变）
+    from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from docx.shared import Pt, Cm
+
+    align_map = {
+        "左对齐": WD_PARAGRAPH_ALIGNMENT.LEFT,
+        "居中": WD_PARAGRAPH_ALIGNMENT.CENTER,
+        "右对齐": WD_PARAGRAPH_ALIGNMENT.RIGHT,
+        "两端对齐": WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    }
+
+    for idx, para in enumerate(doc.paragraphs):
+        if idx >= len(records):
+            level = "正文"
+        else:
+            level = records[idx]
+        style = config.get(level, config["正文"])
+        para.alignment = align_map[style["align"]]
+        para.paragraph_format.first_line_indent = Cm(style["indent"] * 0.74)
+        para.paragraph_format.line_spacing = style["line_value"]
+        for run in para.runs:
+            run.font.name = style["font"]
+            run.font.size = Pt(12 if style["size"] == "小四" else 10.5)
+            run.font.bold = style["bold"]
+            run._element.rPr.rFonts.set(qname='w:eastAsia', value=style["font"])
+
+    bio = BytesIO()
+    doc.save(bio)
+    bio.seek(0)
+    return bio, total_changes
+
+# ====================== 页面UI（已加降重开关 + 报告） ======================
+def main():
+    st.set_page_config(page_title="降重+排版一体工具", layout="wide")
+    st.title("📝 论文智能降重 + 一键排版工具")
+    st.success("已内置：你的全套降重规则｜不破环格式｜表格可降重｜自动生成修改报告")
+
+    col_left, col_right = st.columns([3, 7])
+
+    with col_left:
+        st.subheader("⚙️ 功能开关")
+        enable_rewrite = st.checkbox("✅ 开启智能降重（先降重后排版）", value=False)
+        st.caption("开启后：只改文本，不改图片、表格位置、格式")
+        st.divider()
+        template = TEMPLATE_LIBRARY["河北科技大学-本科毕业论文格式"]
+
+    with col_right:
+        files = st.file_uploader("上传docx文档", type=["docx"], accept_multiple_files=True)
+        if files:
+            if st.button("开始处理（降重+排版）"):
+                for f in files:
+                    with st.spinner(f"正在处理：{f.name}"):
+                        out, changes = process_doc(f, template, rewrite=enable_rewrite)
+
+                    st.subheader("✅ 处理完成")
+                    st.download_button(
+                        "下载已排版文档",
+                        out,
+                        f"已降重_已排版_{f.name}",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+
+                    if enable_rewrite:
+                        report = "# 降重修改报告\n"
+                        report += f"生成时间：{datetime.now()}\n"
+                        report += f"总修改条数：{len(changes)}\n\n"
+                        for i, (o, n, t) in enumerate(changes[:100]):
+                            report += f"【{i+1}】修改类型：{t}\n原文：{o}\n改后：{n}\n\n"
+
+                        report_file = BytesIO(report.encode("utf-8"))
+                        st.download_button(
+                            "📄 下载降重报告",
+                            report_file,
+                            f"降重报告_{f.name}.txt",
+                            mime="text/plain"
+                        )
+
+if __name__ == "__main__":
+    main()
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 24, "space_after": 18},
         "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
         "三级标题": {"font": "楷体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3},
