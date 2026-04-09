@@ -455,7 +455,7 @@ def rewrite_paragraph(text, level_config):
             })
     return "".join(new_sentences), change_log
 
-# ====================== 核心文档处理函数（核心修复+性能飞跃） ======================
+# ====================== 核心文档处理函数（彻底修复样式报错） ======================
 def process_doc(
     file,
     cn_format,
@@ -479,6 +479,8 @@ def process_doc(
     process_log = []
     title_stats = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0, "表格": len(doc.tables)}
     rewrite_config = REWRITE_LEVEL[rewrite_level]
+    # 样式绑定警告只输出1次，避免刷屏
+    style_warn_logged = False
 
     # 1. 封面页生成
     if cover_info and cover_info["enable"]:
@@ -488,7 +490,7 @@ def process_doc(
         except Exception as e:
             process_log.append(f"⚠️ 封面页生成失败：{str(e)}")
 
-    # ====================== 【性能核心优化】4次遍历合并为1次 ======================
+    # ====================== 【核心修复】4次遍历合并为1次，彻底解决样式报错 ======================
     try:
         for para in doc.paragraphs:
             original_text = para.text
@@ -509,23 +511,24 @@ def process_doc(
                     para.text = new_text
                     ref_count += 1
 
-            # 3. 样式绑定【报错核心修复】
+            # 3. 【彻底修复】样式绑定，全异常捕获，避免刷屏
             cn_style = cn_format[level]
             en_style = en_format[level]
             if bind_wps_style and level in WPS_STYLE_MAPPING:
                 try:
-                    # 修复：正文用默认段落样式兜底，避免NORMAL样式不存在报错
-                    if level == "正文":
-                        target_style = doc.styles.default_paragraph_style
-                    else:
-                        target_style = doc.styles[WPS_STYLE_MAPPING[level]]
-                    para.style = target_style
-                    para.paragraph_format.outline_level = int(level[0]) if level != "正文" else 10
+                    # 兼容所有版本python-docx，用内置NORMAL样式，不用default_paragraph_style
+                    target_style_id = WPS_STYLE_MAPPING[level]
+                    # 先检查样式是否存在于文档中
+                    if target_style_id in doc.styles:
+                        para.style = doc.styles[target_style_id]
+                        para.paragraph_format.outline_level = int(level[0]) if level != "正文" else 10
                 except Exception as e:
-                    # 样式不存在时，跳过样式绑定，仅设置格式属性
-                    process_log.append(f"⚠️ 样式绑定跳过（{level}）：{str(e)}")
+                    # 样式不存在时，只记录1次警告，不刷屏
+                    if not style_warn_logged:
+                        process_log.append(f"⚠️ 文档内置样式异常，已跳过WPS标题样式绑定，格式设置不受影响：{str(e)}")
+                        style_warn_logged = True
 
-            # 4. 段落格式设置
+            # 4. 段落格式设置（核心功能，不受样式绑定影响）
             para_format = para.paragraph_format
             para_format.alignment = ALIGN_MAP[cn_style["align"]]
             para_format.first_line_indent = Cm(cn_style["indent"] * 0.74)
