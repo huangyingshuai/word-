@@ -9,7 +9,6 @@ from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_BUILTIN_STYLE
 from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
 
 # ====================== 预编译正则（性能优化核心） ======================
 RE_TITLE_LEVEL1 = re.compile(r'^第[一二三四五六七八九十]+章\s')
@@ -151,7 +150,7 @@ EN_FONT_LIST = ["Times New Roman", "Arial", "Calibri", "Courier New"]
 CN_FONT_LIST = ["宋体", "黑体", "楷体", "仿宋_GB2312", "微软雅黑"]
 MAX_FILE_SIZE_MB = 20
 
-# ====================== 核心工具函数（终极修复版） ======================
+# ====================== 核心工具函数 ======================
 @st.cache_data(ttl=3600)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
@@ -246,6 +245,7 @@ def add_cover_page(doc, cover_info):
     for element in doc.element.body:
         new_doc.element.body.append(element)
     return new_doc
+
 # ====================== 图片无损保留+排版优化函数 ======================
 def optimize_image_layout(doc):
     image_count = 0
@@ -336,7 +336,6 @@ def process_doc(
     rewrite_level="标准降重",
     bind_wps_style=True,
     cover_info=None,
-    header_info=None,
     standardize_ref=True
 ):
     try:
@@ -463,15 +462,7 @@ def process_doc(
     except Exception as e:
         process_log.append(f"⚠️ 表格格式设置失败：{str(e)}")
 
-    # 5. 页眉页脚设置（终极修复版）
-    if header_info and header_info["enable"]:
-        try:
-            doc = set_header_footer(doc, header_info)
-            process_log.append("✅ 页眉页脚设置完成")
-        except Exception as e:
-            process_log.append(f"⚠️ 页眉页脚设置失败：{str(e)}")
-
-    # 6. 格式合规性检查
+    # 5. 格式合规性检查
     try:
         check_report = format_compliance_check(doc, cn_format)
         process_log.append("✅ 格式合规性检查完成")
@@ -539,7 +530,7 @@ def main():
 
     # 页面标题
     st.title(f"🏆 {APP_NAME}")
-    st.success("✅ 适配三创赛/挑战杯/互联网+等竞赛 | 本科/硕士/期刊论文模板 | 图片无损保留 | 自动封面/页眉页脚")
+    st.success("✅ 适配三创赛/挑战杯/互联网+等竞赛 | 本科/硕士/期刊论文模板 | 图片无损保留 | 自动封面生成")
     st.divider()
 
     # 顶部模板与功能开关
@@ -596,7 +587,7 @@ def main():
             "date": date.strftime("%Y年%m月%d日")
         }
 
-       # 左侧边栏：高级格式自定义
+    # 左侧边栏：高级格式自定义
     with st.sidebar:
         st.subheader("⚙️ 高级格式自定义")
         st.caption("默认已加载模板标准格式，无需修改即可直接使用")
@@ -753,7 +744,6 @@ def main():
                         rewrite_level=rewrite_level,
                         bind_wps_style=bind_wps_style,
                         cover_info=cover_info,
-                        header_info=header_info,
                         standardize_ref=standardize_ref
                     )
                     st.subheader(f"✅ 处理完成：{file.name}")
