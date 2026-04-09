@@ -329,43 +329,71 @@ def add_cover_page(doc, cover_info):
     return new_doc
 
 def set_header_footer(doc, header_info):
-    """页眉页脚设置，全版本兼容"""
+    """
+    全版本兼容的页眉页脚设置函数，彻底修复 'CT_Settings' object has no attribute 'p_lst' 报错
+    兼容所有python-docx版本，不依赖高版本API
+    """
     if not header_info["enable"]:
         return doc
+    
+    # 遍历所有节，兼容分节文档
     for section in doc.sections:
-        # 页眉
-        header = section.header
-        header_para = header.paragraphs[0]
+        # ====================== 页眉设置 ======================
+        # 低版本兼容：如果页眉没有段落，手动创建一个
+        if not section.header.paragraphs:
+            section.header.add_paragraph()
+        header_para = section.header.paragraphs[0]
+        # 清空原有内容，避免重复
+        header_para.clear()
         header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # 添加页眉文本
         header_run = header_para.add_run(header_info["header_text"] if header_info["header_text"] else "")
         header_run.font.name = "宋体"
         header_run._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
         header_run.font.size = Pt(10.5)
-        # 页脚+页码
-        footer = section.footer
-        footer_para = footer.paragraphs[0]
+
+        # ====================== 页脚+页码设置 ======================
+        # 低版本兼容：如果页脚没有段落，手动创建一个
+        if not section.footer.paragraphs:
+            section.footer.add_paragraph()
+        footer_para = section.footer.paragraphs[0]
+        # 清空原有内容，避免重复
+        footer_para.clear()
         footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        # 页码域
-        fldChar1 = OxmlElement('w:fldChar')
-        fldChar1.set(qn('w:fldCharType'), 'begin')
+
+        # 生成页码域（全版本兼容，和目录生成逻辑一致）
+        fldChar_begin = OxmlElement('w:fldChar')
+        fldChar_begin.set(qn('w:fldCharType'), 'begin')
+        
         instrText = OxmlElement('w:instrText')
         instrText.set(qn('xml:space'), 'preserve')
         instrText.text = 'PAGE'
-        fldChar2 = OxmlElement('w:fldChar')
-        fldChar2.set(qn('w:fldCharType'), 'end')
-        # 页码文本
+        
+        fldChar_separate = OxmlElement('w:fldChar')
+        fldChar_separate.set(qn('w:fldCharType'), 'separate')
+        
+        fldChar_end = OxmlElement('w:fldChar')
+        fldChar_end.set(qn('w:fldCharType'), 'end')
+
+        # 添加页码文本
         footer_run = footer_para.add_run(f"第 ")
         footer_run.font.name = "宋体"
         footer_run._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
         footer_run.font.size = Pt(10.5)
-        footer_para._p.append(fldChar1)
+        
+        # 把页码域添加到段落
+        footer_para._p.append(fldChar_begin)
         footer_para._p.append(instrText)
-        footer_para._p.append(fldChar2)
+        footer_para._p.append(fldChar_separate)
+        footer_para._p.append(fldChar_end)
+        
+        # 添加页脚附加文本
         footer_text = f" 页 | {header_info['footer_text']}" if header_info["footer_text"] else " 页"
         footer_run2 = footer_para.add_run(footer_text)
         footer_run2.font.name = "宋体"
         footer_run2._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
         footer_run2.font.size = Pt(10.5)
+    
     return doc
 
 # ====================== 图片无损保留+排版优化函数 ======================
