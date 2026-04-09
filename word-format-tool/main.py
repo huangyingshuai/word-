@@ -368,7 +368,7 @@ def set_header_footer(doc, header_info):
         footer_run2.font.size = Pt(10.5)
     return doc
 
-# ====================== 【彻底修复】图片无损保留+排版优化函数 ======================
+# ====================== 图片无损保留+排版优化函数 ======================
 def optimize_image_layout(doc):
     """
     全版本兼容的图片处理函数：
@@ -400,58 +400,6 @@ def optimize_image_layout(doc):
             # 取消首行缩进，避免图片偏移
             para.paragraph_format.first_line_indent = Cm(0)
     return image_count
-
-# ====================== 【彻底修复】目录生成函数，全版本兼容 ======================
-def add_table_of_contents(doc, cn_format):
-    """
-    彻底修复后的目录生成函数，兼容所有python-docx版本
-    1. 完全用OxmlElement生成标签，无无效标签报错
-    2. 不依赖文档内置样式，兼容样式异常的文档
-    3. 目录标题格式和模板一级标题保持一致
-    """
-    # 目录标题段落
-    toc_title_para = doc.add_paragraph()
-    toc_title_run = toc_title_para.add_run("目录")
-    # 手动设置目录标题格式，和一级标题一致，不依赖内置样式
-    title_cfg = cn_format["一级标题"]
-    title_size_pt = FONT_SIZE_MAP.get(title_cfg["size"], 16)
-    # 设置标题格式
-    toc_title_para.alignment = ALIGN_MAP[title_cfg["align"]]
-    toc_title_para.paragraph_format.space_before = Pt(title_cfg["space_before"])
-    toc_title_para.paragraph_format.space_after = Pt(title_cfg["space_after"])
-    # 设置标题字体
-    toc_title_run.font.name = title_cfg["font"]
-    toc_title_run._element.rPr.rFonts.set(qn('w:eastAsia'), title_cfg["font"])
-    toc_title_run.font.size = Pt(title_size_pt)
-    toc_title_run.font.bold = title_cfg["bold"]
-    
-    # 插入目录域，全用OxmlElement生成，兼容低版本
-    toc_para = doc.add_paragraph()
-    toc_run = toc_para.add_run()
-    
-    # 生成目录域的所有标签，和页码域生成方式完全一致
-    fldChar_begin = OxmlElement('w:fldChar')
-    fldChar_begin.set(qn('w:fldCharType'), 'begin')
-    
-    instrText = OxmlElement('w:instrText')
-    instrText.set(qn('xml:space'), 'preserve')
-    instrText.text = 'TOC \\o "1-3" \\h \\z \\u'
-    
-    fldChar_separate = OxmlElement('w:fldChar')
-    fldChar_separate.set(qn('w:fldCharType'), 'separate')
-    
-    fldChar_end = OxmlElement('w:fldChar')
-    fldChar_end.set(qn('w:fldCharType'), 'end')
-    
-    # 把标签添加到run里
-    toc_run._r.append(fldChar_begin)
-    toc_run._r.append(instrText)
-    toc_run._r.append(fldChar_separate)
-    toc_run._r.append(fldChar_end)
-    
-    # 分页
-    doc.add_page_break()
-    return doc
 
 # ====================== 智能降重引擎（优化） ======================
 def is_white_text(text):
@@ -531,7 +479,6 @@ def process_doc(
     enable_rewrite=False,
     rewrite_level="标准降重",
     bind_wps_style=True,
-    add_toc=True,
     cover_info=None,
     header_info=None,
     standardize_ref=True
@@ -624,7 +571,7 @@ def process_doc(
     except Exception as e:
         raise Exception(f"文档段落处理失败：{str(e)}")
 
-    # 图片排版优化（修复后）
+    # 图片排版优化
     try:
         image_count = optimize_image_layout(doc)
         if image_count > 0:
@@ -664,14 +611,6 @@ def process_doc(
         process_log.append("✅ 全文档表格处理完成")
     except Exception as e:
         process_log.append(f"⚠️ 表格格式设置失败：{str(e)}")
-
-    # 目录生成（修复后）
-    if add_toc:
-        try:
-            doc = add_table_of_contents(doc, cn_format)
-            process_log.append("✅ 自动生成目录完成")
-        except Exception as e:
-            process_log.append(f"⚠️ 目录生成失败：{str(e)}")
 
     # 页眉页脚设置
     if header_info and header_info["enable"]:
@@ -751,7 +690,7 @@ def main():
 
     # 页面标题
     st.title(f"🏆 {APP_NAME}")
-    st.success("✅ 适配三创赛/挑战杯/互联网+等竞赛 | 本科/硕士/期刊论文模板 | 图片无损保留 | 自动封面/页眉页脚/目录")
+    st.success("✅ 适配三创赛/挑战杯/互联网+等竞赛 | 本科/硕士/期刊论文模板 | 图片无损保留 | 自动封面/页眉页脚")
     st.divider()
 
     # 顶部模板选择
@@ -777,7 +716,6 @@ def main():
             disabled=not enable_rewrite
         )
     with col3:
-        add_toc = st.checkbox("📋 自动生成目录", value=True)
         bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True)
         standardize_ref = st.checkbox("📚 参考文献标准化", value=True)
 
@@ -991,7 +929,6 @@ def main():
                         enable_rewrite=enable_rewrite,
                         rewrite_level=rewrite_level,
                         bind_wps_style=bind_wps_style,
-                        add_toc=add_toc,
                         cover_info=cover_info,
                         header_info=header_info,
                         standardize_ref=standardize_ref
