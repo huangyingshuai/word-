@@ -596,32 +596,7 @@ def main():
             "date": date.strftime("%Y年%m月%d日")
         }
 
-    # 页眉页脚设置
-    with st.expander("📑 页眉页脚设置", expanded=False):
-        enable_header = st.checkbox("✅ 启用自动设置页眉页脚", value=True)
-        col_header1, col_header2 = st.columns(2)
-        with col_header1:
-            header_text = st.text_input(
-                "页眉内容", 
-                placeholder="请输入页眉显示的内容，如项目名称/论文题目", 
-                value=project_name if enable_cover else "",
-                key="header_text"
-            )
-        with col_header2:
-            footer_text = st.text_input(
-                "页脚附加内容", 
-                placeholder="页脚页码后显示的内容，如团队名称/作者名", 
-                value=team_name if enable_cover else "",
-                key="footer_text"
-            )
-        
-        header_info = {
-            "enable": enable_header,
-            "header_text": header_text,
-            "footer_text": footer_text
-        }
-
-    # 左侧边栏：高级格式自定义
+       # 左侧边栏：高级格式自定义
     with st.sidebar:
         st.subheader("⚙️ 高级格式自定义")
         st.caption("默认已加载模板标准格式，无需修改即可直接使用")
