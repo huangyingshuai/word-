@@ -1,6 +1,7 @@
 import streamlit as st
 import copy
 import re
+import random
 from datetime import datetime
 from io import BytesIO
 from docx import Document
@@ -9,6 +10,31 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_BUILTIN_STYLE
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
+# ====================== 预编译正则（性能优化核心） ======================
+# 标题层级匹配正则
+RE_TITLE_LEVEL1 = re.compile(r'^第[一二三四五六七八九十]+章\s')
+RE_TITLE_LEVEL1_SIMPLE = re.compile(r'^\d+、\s')
+RE_TITLE_LEVEL2 = re.compile(r'^\d+\.\d+\s')
+RE_TITLE_LEVEL2_SIMPLE = re.compile(r'^（[一二三四五六七八九十]+）\s')
+RE_TITLE_LEVEL3 = re.compile(r'^\d+\.\d+\.\d+\s')
+RE_TITLE_LEVEL3_SIMPLE = re.compile(r'^（\d+）\s')
+# 参考文献匹配正则
+RE_REF_FLAG = re.compile(r'^\[(\d+)\]')
+RE_REF_KEYWORD = re.compile(r'参考文献')
+RE_REF_SPACE = re.compile(r'\s+')
+RE_REF_CN_FONT = re.compile(r'([\u4e00-\u9fa5]+)\[([A-Z]+)\]')
+RE_REF_DOT = re.compile(r'。(?![\u4e00-\u9fa5])')
+RE_REF_COMMA = re.compile(r'，')
+RE_REF_COLON = re.compile(r'：')
+# 关键词提取正则
+RE_KEYWORDS = re.compile(r'[\u4e00-\u9fa5]{2,}')
+# 白名单数字/引用匹配
+RE_WHITE_NUMBER = re.compile(r'^\d+(\.\d+)*$')
+RE_WHITE_QUOTE = re.compile(r'^\[.*\]$')
+# 句式拆分正则
+RE_SENTENCE_SPLIT = re.compile(r'(?<=[。！？；])\s*')
+RE_CLAUSE_SPLIT = re.compile(r'[，。；]')
 
 # ====================== 全局配置与常量 ======================
 # 专业术语白名单（降重不修改+格式保护）
@@ -20,7 +46,6 @@ WHITE_WORDS = [
     "深度学习", "神经网络", "算法", "系统", "模型", "数据", "技术", "创新", "创业",
     "商业模式", "市场分析", "财务预测", "风险控制", "团队介绍", "产品服务", "SWOT"
 ]
-
 # WPS/Word原生样式映射表（绑定内置标题1/2/3，导航窗格自动识别）
 WPS_STYLE_MAPPING = {
     "一级标题": WD_BUILTIN_STYLE.HEADING_1,
@@ -28,7 +53,6 @@ WPS_STYLE_MAPPING = {
     "三级标题": WD_BUILTIN_STYLE.HEADING_3,
     "正文": WD_BUILTIN_STYLE.NORMAL
 }
-
 # ====================== 全模板配置 ======================
 # 1. 竞赛模板
 COMPETITION_FORMATS = {
@@ -101,7 +125,6 @@ COMPETITION_FORMATS = {
         "special_requirements": ["全文10000字以上", "分创意组/创业组撰写", "需包含完整财务预测", "商业模式需清晰可落地"]
     }
 }
-
 # 2. 论文模板
 THESIS_FORMATS = {
     "本科毕业论文": {
@@ -156,17 +179,14 @@ THESIS_FORMATS = {
         "special_requirements": ["全文6000-10000字", "需包含中英文摘要、关键词、正文、参考文献", "图表需标注清晰", "需符合期刊投稿格式规范"]
     }
 }
-
 # 合并所有模板
 ALL_TEMPLATES = {**COMPETITION_FORMATS, **THESIS_FORMATS}
-
 # 降重强度配置
 REWRITE_LEVEL = {
     "轻度降重": {"synonym": True, "sentence_reorder": False, "structure_change": False},
     "标准降重": {"synonym": True, "sentence_reorder": True, "structure_change": False},
     "强力降重": {"synonym": True, "sentence_reorder": True, "structure_change": True}
 }
-
 # 学术场景同义词词典
 SYNONYM_DICT = {
     "提升": "有效改善", "降低": "显著减少", "增加": "大幅提升", "减少": "有效降低",
@@ -178,7 +198,6 @@ SYNONYM_DICT = {
     "优势": "核心竞争力", "问题": "行业痛点", "方法": "技术路径",
     "现状": "发展态势", "趋势": "未来走向", "解决": "破解", "实现": "达成"
 }
-
 # 全局常量
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
@@ -195,48 +214,61 @@ APP_NAME = "竞赛&论文格式处理器"
 LEVEL_LIST = ["一级标题", "二级标题", "三级标题", "正文", "表格"]
 EN_FONT_LIST = ["Times New Roman", "Arial", "Calibri", "Courier New"]
 CN_FONT_LIST = ["宋体", "黑体", "楷体", "仿宋_GB2312", "微软雅黑"]
+# 单文件最大大小（20MB，避免超大文件卡顿）
+MAX_FILE_SIZE_MB = 20
 
-# ====================== 核心工具函数 ======================
+# ====================== 核心工具函数（修复+优化） ======================
+@st.cache_data(ttl=3600)
+def get_cached_template(template_name):
+    """缓存模板配置，减少重复深拷贝"""
+    return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
+
 def get_title_level(para_text):
+    """优化标题识别，用预编译正则提升速度"""
     text = para_text.strip()
     if not text or len(text) < 2:
         return "正文"
-    if re.match(r'^第[一二三四五六七八九十]+章\s', text) or (re.match(r'^\d+、\s', text) and len(text) < 25):
+    if RE_TITLE_LEVEL1.match(text) or (RE_TITLE_LEVEL1_SIMPLE.match(text) and len(text) < 25):
         return "一级标题"
-    elif re.match(r'^\d+\.\d+\s', text) or (re.match(r'^（[一二三四五六七八九十]+）\s', text) and len(text) < 25):
+    elif RE_TITLE_LEVEL2.match(text) or (RE_TITLE_LEVEL2_SIMPLE.match(text) and len(text) < 25):
         return "二级标题"
-    elif re.match(r'^\d+\.\d+\.\d+\s', text) or (re.match(r'^（\d+）\s', text) and len(text) < 20):
+    elif RE_TITLE_LEVEL3.match(text) or (RE_TITLE_LEVEL3_SIMPLE.match(text) and len(text) < 20):
         return "三级标题"
     else:
         return "正文"
 
 def standardize_reference(text):
-    if not re.search(r'^\[(\d+)\]', text.strip()) and not re.search(r'参考文献', text):
+    """参考文献标准化，预编译正则提升速度"""
+    if not RE_REF_FLAG.match(text.strip()) and not RE_REF_KEYWORD.search(text):
         return text, False
-    text = re.sub(r'\s+', ' ', text.strip())
-    text = re.sub(r'([\u4e00-\u9fa5]+)\[([A-Z]+)\]', r'\1[\2]', text)
-    text = re.sub(r'。(?![\u4e00-\u9fa5])', '.', text)
-    text = re.sub(r'，', ',', text)
-    text = re.sub(r'：', ':', text)
+    text = RE_REF_SPACE.sub(' ', text.strip())
+    text = RE_REF_CN_FONT.sub(r'\1[\2]', text)
+    text = RE_REF_DOT.sub('.', text)
+    text = RE_REF_COMMA.sub(',', text)
+    text = RE_REF_COLON.sub(':', text)
     return text, True
 
 def format_compliance_check(doc, cn_format):
+    """格式合规性检查，优化遍历逻辑"""
     check_report = []
     title_levels = ["一级标题", "二级标题", "三级标题"]
+    # 段落检查
     for para in doc.paragraphs:
         level = get_title_level(para.text)
+        # 标题格式检查
         if level in title_levels:
             target_font = cn_format[level]["font"]
             target_size = FONT_SIZE_MAP.get(cn_format[level]["size"], 12)
             for run in para.runs:
-                if run.font.name != target_font and run.font.name not in CN_FONT_LIST:
+                if run.font.name != target_font and run.font.name in CN_FONT_LIST:
                     check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 字体不符合要求，应为{target_font}")
                 if run.font.size and run.font.size.pt != target_size:
                     check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 字号不符合要求，应为{cn_format[level]['size']}")
-    for para in doc.paragraphs:
-        if get_title_level(para.text) == "正文" and para.text.strip():
+        # 正文缩进检查
+        elif level == "正文" and para.text.strip():
             if not para.paragraph_format.first_line_indent:
                 check_report.append(f"⚠️ 【正文】{para.text[:20]}... 未设置首行缩进2字符")
+    # 表格检查
     for i, table in enumerate(doc.tables):
         for row in table.rows:
             for cell in row.cells:
@@ -248,9 +280,11 @@ def format_compliance_check(doc, cn_format):
     return check_report
 
 def add_cover_page(doc, cover_info):
+    """封面页生成，无修改"""
     if not cover_info["enable"]:
         return doc
     new_doc = Document()
+    # 标题
     title_para = new_doc.add_paragraph()
     title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title_run = title_para.add_run(cover_info["project_name"] if cover_info["project_name"] else "参赛作品/毕业论文")
@@ -258,6 +292,7 @@ def add_cover_page(doc, cover_info):
     title_run._element.rPr.rFonts.set(qn('w:eastAsia'), "黑体")
     title_run.font.size = Pt(36)
     title_run.font.bold = True
+    # 副标题
     sub_title_para = new_doc.add_paragraph()
     sub_title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub_title_run = sub_title_para.add_run(cover_info["competition"] if cover_info["competition"] else "")
@@ -265,8 +300,10 @@ def add_cover_page(doc, cover_info):
     sub_title_run._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
     sub_title_run.font.size = Pt(22)
     sub_title_run.font.bold = True
+    # 空行
     for _ in range(8):
         new_doc.add_paragraph()
+    # 信息列表
     info_list = []
     if cover_info["school"]:
         info_list.append(f"学校：{cover_info['school']}")
@@ -284,15 +321,19 @@ def add_cover_page(doc, cover_info):
         run._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
         run.font.size = Pt(16)
         run.font.bold = True
+    # 分页
     new_doc.add_page_break()
+    # 合并原文档
     for element in doc.element.body:
         new_doc.element.body.append(element)
     return new_doc
 
 def set_header_footer(doc, header_info):
+    """页眉页脚设置，无修改"""
     if not header_info["enable"]:
         return doc
     for section in doc.sections:
+        # 页眉
         header = section.header
         header_para = header.paragraphs[0]
         header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -300,9 +341,11 @@ def set_header_footer(doc, header_info):
         header_run.font.name = "宋体"
         header_run._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
         header_run.font.size = Pt(10.5)
+        # 页脚+页码
         footer = section.footer
         footer_para = footer.paragraphs[0]
         footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        # 页码域
         fldChar1 = OxmlElement('w:fldChar')
         fldChar1.set(qn('w:fldCharType'), 'begin')
         instrText = OxmlElement('w:instrText')
@@ -310,6 +353,7 @@ def set_header_footer(doc, header_info):
         instrText.text = 'PAGE'
         fldChar2 = OxmlElement('w:fldChar')
         fldChar2.set(qn('w:fldCharType'), 'end')
+        # 页码文本
         footer_run = footer_para.add_run(f"第 ")
         footer_run.font.name = "宋体"
         footer_run._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
@@ -325,6 +369,7 @@ def set_header_footer(doc, header_info):
     return doc
 
 def add_table_of_contents(doc):
+    """目录生成，无修改"""
     doc.add_paragraph("目录", style=doc.styles[WD_BUILTIN_STYLE.HEADING_1])
     para = doc.add_paragraph()
     run = para.add_run()
@@ -340,53 +385,60 @@ def add_table_of_contents(doc):
     doc.add_page_break()
     return doc
 
-# ====================== 智能降重引擎 ======================
+# ====================== 智能降重引擎（优化） ======================
 def is_white_text(text):
+    """白名单判断，预编译正则提升速度"""
     for word in WHITE_WORDS:
         if word in text:
             return True
-    if re.match(r'^\d+(\.\d+)*$', text) or re.match(r'^\[.*\]$', text):
+    if RE_WHITE_NUMBER.match(text) or RE_WHITE_QUOTE.match(text):
         return True
     return False
 
 def check_semantic_keep(original, modified):
-    original_keywords = set(re.findall(r'[\u4e00-\u9fa5]{2,}', original))
-    modified_keywords = set(re.findall(r'[\u4e00-\u9fa5]{2,}', modified))
+    """语义保持检查，预编译正则提升速度"""
+    original_keywords = set(RE_KEYWORDS.findall(original))
+    modified_keywords = set(RE_KEYWORDS.findall(modified))
     if not original_keywords:
         return 1.0
     overlap = original_keywords & modified_keywords
     return len(overlap) / len(original_keywords)
 
 def rewrite_sentence(sentence, level_config):
+    """句子重写，移除循环内导入，优化逻辑"""
     original = sentence.strip()
     if len(original) < 5 or is_white_text(original):
         return original, "原文保留（白名单/短句）", 1.0
     modified = original
     rewrite_type = "无修改"
+    # 同义词替换
     if level_config["synonym"]:
         for old, new in SYNONYM_DICT.items():
             if old in modified and not is_white_text(old):
                 modified = modified.replace(old, new)
                 rewrite_type = "同义词替换"
+    # 句式重构
     if level_config["sentence_reorder"]:
-        parts = [p.strip() for p in re.split(r'[，。；]', modified) if p.strip()]
+        parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
         if len(parts) >= 3 and not is_white_text(modified):
-            import random
             random.shuffle(parts)
             modified = "，".join(parts) + "。"
             rewrite_type = "句式重构+语序打乱"
+    # 结构调整
     if level_config["structure_change"]:
         if "在" in modified and "中" in modified and not is_white_text(modified):
             modified = re.sub(r'在(.*?)中', f'结合{datetime.now().year}年行业实际发展情况，在\g<1>场景中', modified)
             rewrite_type = "结构调整+场景限定补充"
+    # 语义校验
     semantic_score = check_semantic_keep(original, modified)
     if semantic_score < 0.7:
         return original, "原文保留（语义重合度不达标）", 1.0
     return modified, rewrite_type, round(semantic_score, 4)
 
 def rewrite_paragraph(text, level_config):
+    """段落重写，预编译正则提升速度"""
     change_log = []
-    sentences = re.split(r'(?<=[。！？；])\s*', text)
+    sentences = RE_SENTENCE_SPLIT.split(text)
     new_sentences = []
     for sent in sentences:
         if not sent.strip():
@@ -403,7 +455,7 @@ def rewrite_paragraph(text, level_config):
             })
     return "".join(new_sentences), change_log
 
-# ====================== 核心文档处理函数 ======================
+# ====================== 核心文档处理函数（核心修复+性能飞跃） ======================
 def process_doc(
     file,
     cn_format,
@@ -420,12 +472,15 @@ def process_doc(
         doc = Document(file)
     except Exception as e:
         raise Exception(f"文档读取失败，请确认是有效的docx文件：{str(e)}")
+    
+    # 初始化变量
     total_changes = []
     ref_count = 0
     process_log = []
     title_stats = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0, "表格": len(doc.tables)}
     rewrite_config = REWRITE_LEVEL[rewrite_level]
 
+    # 1. 封面页生成
     if cover_info and cover_info["enable"]:
         try:
             doc = add_cover_page(doc, cover_info)
@@ -433,63 +488,57 @@ def process_doc(
         except Exception as e:
             process_log.append(f"⚠️ 封面页生成失败：{str(e)}")
 
-    if enable_rewrite:
-        try:
-            for para in doc.paragraphs:
-                original_text = para.text
-                level = get_title_level(original_text)
-                if level == "正文":
-                    new_text, changes = rewrite_paragraph(original_text, rewrite_config)
-                    if changes:
-                        total_changes.extend(changes)
-                        para.text = new_text
-            for table in doc.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        for para in cell.paragraphs:
-                            original_text = para.text.strip()
-                            if not original_text or is_white_text(original_text):
-                                continue
-                            new_text, changes = rewrite_paragraph(original_text, rewrite_config)
-                            if changes:
-                                total_changes.extend(changes)
-                                para.text = new_text
-            process_log.append(f"✅ 智能降重完成，共修改{len(total_changes)}处内容")
-        except Exception as e:
-            process_log.append(f"⚠️ 智能降重失败：{str(e)}")
+    # ====================== 【性能核心优化】4次遍历合并为1次 ======================
+    try:
+        for para in doc.paragraphs:
+            original_text = para.text
+            level = get_title_level(original_text)
+            title_stats[level] += 1
 
-    if standardize_ref:
-        try:
-            for para in doc.paragraphs:
+            # 1. 智能降重（仅正文）
+            if enable_rewrite and level == "正文":
+                new_text, changes = rewrite_paragraph(original_text, rewrite_config)
+                if changes:
+                    total_changes.extend(changes)
+                    para.text = new_text
+
+            # 2. 参考文献标准化
+            if standardize_ref:
                 new_text, is_ref = standardize_reference(para.text)
                 if is_ref:
                     para.text = new_text
                     ref_count += 1
-            if ref_count > 0:
-                process_log.append(f"✅ 参考文献格式标准化完成，共处理{ref_count}条")
-        except Exception as e:
-            process_log.append(f"⚠️ 参考文献标准化失败：{str(e)}")
 
-    try:
-        for para in doc.paragraphs:
-            level = get_title_level(para.text)
-            title_stats[level] += 1
+            # 3. 样式绑定【报错核心修复】
             cn_style = cn_format[level]
             en_style = en_format[level]
             if bind_wps_style and level in WPS_STYLE_MAPPING:
-                para.style = doc.styles[WPS_STYLE_MAPPING[level]]
-                para.paragraph_format.outline_level = int(level[0])
+                try:
+                    # 修复：正文用默认段落样式兜底，避免NORMAL样式不存在报错
+                    if level == "正文":
+                        target_style = doc.styles.default_paragraph_style
+                    else:
+                        target_style = doc.styles[WPS_STYLE_MAPPING[level]]
+                    para.style = target_style
+                    para.paragraph_format.outline_level = int(level[0]) if level != "正文" else 10
+                except Exception as e:
+                    # 样式不存在时，跳过样式绑定，仅设置格式属性
+                    process_log.append(f"⚠️ 样式绑定跳过（{level}）：{str(e)}")
+
+            # 4. 段落格式设置
             para_format = para.paragraph_format
             para_format.alignment = ALIGN_MAP[cn_style["align"]]
             para_format.first_line_indent = Cm(cn_style["indent"] * 0.74)
             para_format.space_before = Pt(cn_style["space_before"])
             para_format.space_after = Pt(cn_style["space_after"])
+            # 行距设置
             if cn_style["line_type"] == "固定值":
                 para_format.line_spacing_rule = 2
                 para_format.line_spacing = Pt(cn_style["line_value"])
             else:
                 para_format.line_spacing_rule = 1
                 para_format.line_spacing = cn_style["line_value"]
+            # 字体设置
             cn_size_pt = FONT_SIZE_MAP.get(cn_style["size"], 12)
             for run in para.runs:
                 run.font.name = cn_style["font"]
@@ -500,10 +549,15 @@ def process_doc(
                 run.font.size = Pt(cn_size_pt)
                 run.font.bold = en_style["bold"] if en_style["bold"] else cn_style["bold"]
                 run.font.italic = en_style["italic"]
-        process_log.append("✅ 全文档格式设置完成")
+        process_log.append("✅ 全文档段落处理完成（降重+标准化+格式设置）")
+        if enable_rewrite:
+            process_log.append(f"✅ 智能降重完成，共修改{len(total_changes)}处内容")
+        if standardize_ref and ref_count > 0:
+            process_log.append(f"✅ 参考文献格式标准化完成，共处理{ref_count}条")
     except Exception as e:
-        raise Exception(f"文档格式设置失败：{str(e)}")
+        raise Exception(f"文档段落处理失败：{str(e)}")
 
+    # 表格格式统一处理
     try:
         cn_table_style = cn_format["表格"]
         en_table_style = en_format["表格"]
@@ -512,6 +566,15 @@ def process_doc(
             for row in table.rows:
                 for cell in row.cells:
                     for para in cell.paragraphs:
+                        # 表格降重
+                        if enable_rewrite:
+                            original_text = para.text.strip()
+                            if original_text and not is_white_text(original_text):
+                                new_text, changes = rewrite_paragraph(original_text, rewrite_config)
+                                if changes:
+                                    total_changes.extend(changes)
+                                    para.text = new_text
+                        # 表格格式设置
                         para.alignment = ALIGN_MAP[cn_table_style["align"]]
                         for run in para.runs:
                             run.font.name = cn_table_style["font"]
@@ -521,9 +584,11 @@ def process_doc(
                             run.font.size = Pt(table_cn_size)
                             run.font.bold = en_table_style["bold"] if en_table_style["bold"] else cn_table_style["bold"]
                             run.font.italic = en_table_style["italic"]
+        process_log.append("✅ 全文档表格处理完成")
     except Exception as e:
         process_log.append(f"⚠️ 表格格式设置失败：{str(e)}")
 
+    # 目录生成
     if add_toc:
         try:
             doc = add_table_of_contents(doc)
@@ -531,6 +596,7 @@ def process_doc(
         except Exception as e:
             process_log.append(f"⚠️ 目录生成失败：{str(e)}")
 
+    # 页眉页脚设置
     if header_info and header_info["enable"]:
         try:
             doc = set_header_footer(doc, header_info)
@@ -538,6 +604,7 @@ def process_doc(
         except Exception as e:
             process_log.append(f"⚠️ 页眉页脚设置失败：{str(e)}")
 
+    # 格式合规性检查
     try:
         check_report = format_compliance_check(doc, cn_format)
         process_log.append("✅ 格式合规性检查完成")
@@ -545,6 +612,7 @@ def process_doc(
         check_report = [f"⚠️ 格式检查失败：{str(e)}"]
         process_log.append(check_report[0])
 
+    # 文档输出
     output = BytesIO()
     doc.save(output)
     output.seek(0)
@@ -587,7 +655,7 @@ def generate_report(changes, rewrite_level, title_stats, process_log, check_repo
             report += f"改后：{change['modified']}\n\n"
     return report.encode("utf-8")
 
-# ====================== Streamlit主界面 ======================
+# ====================== Streamlit主界面（优化重渲染） ======================
 def main():
     st.set_page_config(
         page_title=APP_NAME,
@@ -595,14 +663,10 @@ def main():
         page_icon="🏆",
         initial_sidebar_state="expanded"
     )
-
-    # 初始化页面状态
+    # 初始化页面状态（优化：减少rerun触发）
     if "current_template" not in st.session_state:
         st.session_state.current_template = "三创赛"
-    if "cn_format" not in st.session_state:
-        st.session_state.cn_format = copy.deepcopy(ALL_TEMPLATES[st.session_state.current_template]["cn_format"])
-    if "en_format" not in st.session_state:
-        st.session_state.en_format = copy.deepcopy(ALL_TEMPLATES[st.session_state.current_template]["en_format"])
+        st.session_state.cn_format, st.session_state.en_format = get_cached_template("三创赛")
     if "custom_templates" not in st.session_state:
         st.session_state.custom_templates = {}
     if "version" not in st.session_state:
@@ -621,13 +685,12 @@ def main():
             options=list(ALL_TEMPLATES.keys()),
             index=list(ALL_TEMPLATES.keys()).index(st.session_state.current_template)
         )
+        # 模板切换优化：用缓存减少深拷贝
         if selected_template != st.session_state.current_template:
             st.session_state.current_template = selected_template
-            st.session_state.cn_format = copy.deepcopy(ALL_TEMPLATES[selected_template]["cn_format"])
-            st.session_state.en_format = copy.deepcopy(ALL_TEMPLATES[selected_template]["en_format"])
+            st.session_state.cn_format, st.session_state.en_format = get_cached_template(selected_template)
             st.session_state.version += 1
             st.rerun()
-
     with col2:
         enable_rewrite = st.checkbox("🔄 开启智能降重", value=False)
         rewrite_level = st.selectbox(
@@ -636,7 +699,6 @@ def main():
             index=1,
             disabled=not enable_rewrite
         )
-
     with col3:
         add_toc = st.checkbox("📋 自动生成目录", value=True)
         bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True)
@@ -648,8 +710,7 @@ def main():
         st.markdown(f"- {req}")
     st.divider()
 
-    # ====================== 【修复核心】先定义封面页变量，再使用 ======================
-    # 封面页设置（先执行，定义好project_name、team_name等变量）
+    # 封面页设置
     with st.expander("📄 封面页设置", expanded=False):
         enable_cover = st.checkbox("✅ 启用自动生成封面页", value=True)
         col_cover1, col_cover2 = st.columns(2)
@@ -672,7 +733,7 @@ def main():
             "date": date.strftime("%Y年%m月%d日")
         }
 
-    # 页眉页脚设置（后执行，使用前面已经定义好的project_name、team_name）
+    # 页眉页脚设置
     with st.expander("📑 页眉页脚设置", expanded=False):
         enable_header = st.checkbox("✅ 启用自动设置页眉页脚", value=True)
         col_header1, col_header2 = st.columns(2)
@@ -701,7 +762,6 @@ def main():
     with st.sidebar:
         st.subheader("⚙️ 高级格式自定义")
         st.caption("默认已加载模板标准格式，无需修改即可直接使用")
-
         # 自定义模板功能
         st.markdown("#### 💾 自定义模板")
         template_name = st.text_input("模板名称", placeholder="给你的自定义格式起个名字", key="template_name")
@@ -726,7 +786,6 @@ def main():
                     st.session_state.version += 1
                     st.rerun()
         st.divider()
-
         # 中文格式设置
         st.markdown("#### 🀄 中文格式设置")
         for level in LEVEL_LIST:
@@ -778,7 +837,6 @@ def main():
                     )
                 st.session_state.cn_format[level] = cfg
         st.divider()
-
         # 全层级西文/数字格式设置
         st.markdown("#### 🔤 西文/数字格式设置")
         for level in LEVEL_LIST:
@@ -808,11 +866,23 @@ def main():
 
     # 右侧主区域：文件上传与处理
     st.subheader("📁 文档上传与处理")
+    st.caption(f"⚠️ 单文件最大支持 {MAX_FILE_SIZE_MB}MB，仅支持 .docx 格式")
     files = st.file_uploader(
         "上传 .docx 格式的文档（支持多选批量处理）",
         type=["docx"],
         accept_multiple_files=True
     )
+
+    # 文件大小前置校验
+    if files:
+        valid_files = []
+        for file in files:
+            file_size_mb = file.size / (1024 * 1024)
+            if file_size_mb > MAX_FILE_SIZE_MB:
+                st.error(f"❌ 文件 {file.name} 大小为 {file_size_mb:.2f}MB，超过最大限制 {MAX_FILE_SIZE_MB}MB")
+            else:
+                valid_files.append(file)
+        files = valid_files
 
     # 无文件时的引导内容
     if not files:
@@ -849,7 +919,6 @@ def main():
                         header_info=header_info,
                         standardize_ref=standardize_ref
                     )
-
                     st.subheader(f"✅ 处理完成：{file.name}")
                     with st.expander("📋 处理流程日志", expanded=True):
                         for log in process_log:
@@ -863,7 +932,6 @@ def main():
                     with st.expander("⚠️ 格式合规性检查报告", expanded=False):
                         for item in check_report:
                             st.write(item)
-
                     st.download_button(
                         label="📥 下载已处理文档",
                         data=output_doc,
@@ -871,7 +939,6 @@ def main():
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True
                     )
-
                     report_bytes = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
                     st.download_button(
                         label="📄 下载完整处理报告",
