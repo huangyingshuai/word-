@@ -14,5 +14,5 @@
 本地运行步骤：
 1. 克隆仓库
 ```bash
-git clone [这里后续填你的GitHub仓库地址]
+git clone (https://github.com/huangyingshuai/word-)
 cd word-format-tool
