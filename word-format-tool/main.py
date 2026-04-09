@@ -330,70 +330,119 @@ def add_cover_page(doc, cover_info):
 
 def set_header_footer(doc, header_info):
     """
-    全版本兼容的页眉页脚设置函数，彻底修复 'CT_Settings' object has no attribute 'p_lst' 报错
-    兼容所有python-docx版本，不依赖高版本API
+    终极兼容版页眉页脚设置，彻底解决 'CT_Settings' object has no attribute 'p_lst' 报错
+    纯XML底层操作，兼容所有python-docx版本，0依赖高版本API
     """
     if not header_info["enable"]:
         return doc
-    
+
     # 遍历所有节，兼容分节文档
     for section in doc.sections:
         # ====================== 页眉设置 ======================
-        # 低版本兼容：如果页眉没有段落，手动创建一个
-        if not section.header.paragraphs:
-            section.header.add_paragraph()
-        header_para = section.header.paragraphs[0]
-        # 清空原有内容，避免重复
-        header_para.clear()
-        header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        # 添加页眉文本
-        header_run = header_para.add_run(header_info["header_text"] if header_info["header_text"] else "")
-        header_run.font.name = "宋体"
-        header_run._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
-        header_run.font.size = Pt(10.5)
+        # 1. 完全清空原有页眉内容，避免残留
+        for p in section.header.paragraphs:
+            p.clear()
+        # 2. 手动创建全新页眉段落（100%兼容所有版本）
+        header_p = OxmlElement('w:p')
+        section.header._element.append(header_p)
+        # 3. 创建页眉文本运行
+        header_r = OxmlElement('w:r')
+        header_t = OxmlElement('w:t')
+        header_t.text = header_info["header_text"] if header_info["header_text"] else ""
+        # 4. 设置字体（宋体，五号=10.5磅）
+        rPr = OxmlElement('w:rPr')
+        rFonts = OxmlElement('w:rFonts')
+        rFonts.set(qn('w:eastAsia'), '宋体')
+        sz = OxmlElement('w:sz')
+        sz.set(qn('w:val'), '21')  # 10.5磅 = 21半磅
+        rPr.append(rFonts)
+        rPr.append(sz)
+        header_r.append(rPr)
+        header_r.append(header_t)
+        header_p.append(header_r)
+        # 5. 设置居中对齐
+        pPr = OxmlElement('w:pPr')
+        jc = OxmlElement('w:jc')
+        jc.set(qn('w:val'), 'center')
+        pPr.append(jc)
+        header_p.insert(0, pPr)
 
         # ====================== 页脚+页码设置 ======================
-        # 低版本兼容：如果页脚没有段落，手动创建一个
-        if not section.footer.paragraphs:
-            section.footer.add_paragraph()
-        footer_para = section.footer.paragraphs[0]
-        # 清空原有内容，避免重复
-        footer_para.clear()
-        footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        # 生成页码域（全版本兼容，和目录生成逻辑一致）
+        # 1. 完全清空原有页脚内容
+        for p in section.footer.paragraphs:
+            p.clear()
+        # 2. 手动创建全新页脚段落
+        footer_p = OxmlElement('w:p')
+        section.footer._element.append(footer_p)
+        # 3. 构建页码域（纯XML，全版本兼容）
+        # 页码域结构：begin -> instrText -> separate -> end
         fldChar_begin = OxmlElement('w:fldChar')
         fldChar_begin.set(qn('w:fldCharType'), 'begin')
-        
         instrText = OxmlElement('w:instrText')
         instrText.set(qn('xml:space'), 'preserve')
         instrText.text = 'PAGE'
-        
         fldChar_separate = OxmlElement('w:fldChar')
         fldChar_separate.set(qn('w:fldCharType'), 'separate')
-        
         fldChar_end = OxmlElement('w:fldChar')
         fldChar_end.set(qn('w:fldCharType'), 'end')
 
-        # 添加页码文本
-        footer_run = footer_para.add_run(f"第 ")
-        footer_run.font.name = "宋体"
-        footer_run._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
-        footer_run.font.size = Pt(10.5)
-        
-        # 把页码域添加到段落
-        footer_para._p.append(fldChar_begin)
-        footer_para._p.append(instrText)
-        footer_para._p.append(fldChar_separate)
-        footer_para._p.append(fldChar_end)
-        
-        # 添加页脚附加文本
+        # 4. 创建页脚文本运行
+        # 第一部分："第 "
+        r1 = OxmlElement('w:r')
+        t1 = OxmlElement('w:t')
+        t1.text = "第 "
+        r1Pr = OxmlElement('w:rPr')
+        r1Fonts = OxmlElement('w:rFonts')
+        r1Fonts.set(qn('w:eastAsia'), '宋体')
+        r1Sz = OxmlElement('w:sz')
+        r1Sz.set(qn('w:val'), '21')
+        r1Pr.append(r1Fonts)
+        r1Pr.append(r1Sz)
+        r1.append(r1Pr)
+        r1.append(t1)
+
+        # 第二部分：页码域
+        r2 = OxmlElement('w:r')
+        r2Pr = OxmlElement('w:rPr')
+        r2Fonts = OxmlElement('w:rFonts')
+        r2Fonts.set(qn('w:eastAsia'), '宋体')
+        r2Sz = OxmlElement('w:sz')
+        r2Sz.set(qn('w:val'), '21')
+        r2Pr.append(r2Fonts)
+        r2Pr.append(r2Sz)
+        r2.append(r2Pr)
+        r2.append(fldChar_begin)
+        r2.append(instrText)
+        r2.append(fldChar_separate)
+        r2.append(fldChar_end)
+
+        # 第三部分：" 页 | 附加文本"
         footer_text = f" 页 | {header_info['footer_text']}" if header_info["footer_text"] else " 页"
-        footer_run2 = footer_para.add_run(footer_text)
-        footer_run2.font.name = "宋体"
-        footer_run2._element.rPr.rFonts.set(qn('w:eastAsia'), "宋体")
-        footer_run2.font.size = Pt(10.5)
-    
+        r3 = OxmlElement('w:r')
+        t3 = OxmlElement('w:t')
+        t3.text = footer_text
+        r3Pr = OxmlElement('w:rPr')
+        r3Fonts = OxmlElement('w:rFonts')
+        r3Fonts.set(qn('w:eastAsia'), '宋体')
+        r3Sz = OxmlElement('w:sz')
+        r3Sz.set(qn('w:val'), '21')
+        r3Pr.append(r3Fonts)
+        r3Pr.append(r3Sz)
+        r3.append(r3Pr)
+        r3.append(t3)
+
+        # 5. 设置页脚居中对齐
+        footer_pPr = OxmlElement('w:pPr')
+        footer_jc = OxmlElement('w:jc')
+        footer_jc.set(qn('w:val'), 'center')
+        footer_pPr.append(footer_jc)
+        footer_p.insert(0, footer_pPr)
+
+        # 6. 把所有运行添加到页脚段落
+        footer_p.append(r1)
+        footer_p.append(r2)
+        footer_p.append(r3)
+
     return doc
 
 # ====================== 图片无损保留+排版优化函数 ======================
