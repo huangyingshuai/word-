@@ -10,6 +10,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_BUILTIN_STYLE
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.enum.section import WD_SECTION
 
 # ====================== 预编译正则（性能优化核心） ======================
 # 标题层级匹配正则
@@ -217,7 +218,7 @@ CN_FONT_LIST = ["宋体", "黑体", "楷体", "仿宋_GB2312", "微软雅黑"]
 # 单文件最大大小（20MB，避免超大文件卡顿）
 MAX_FILE_SIZE_MB = 20
 
-# ====================== 核心工具函数（修复+优化） ======================
+# ====================== 核心工具函数（修复+优化+新增图片功能） ======================
 @st.cache_data(ttl=3600)
 def get_cached_template(template_name):
     """缓存模板配置，减少重复深拷贝"""
@@ -368,9 +369,74 @@ def set_header_footer(doc, header_info):
         footer_run2.font.size = Pt(10.5)
     return doc
 
-def add_table_of_contents(doc):
-    """目录生成，无修改"""
-    doc.add_paragraph("目录", style=doc.styles[WD_BUILTIN_STYLE.HEADING_1])
+# ====================== 【新增】图片无损保留+排版优化函数 ======================
+def optimize_image_layout(doc):
+    """
+    图片处理核心函数：
+    1. 完全保留原图片的尺寸、清晰度、内容、环绕方式，不做任何修改
+    2. 优化排版：设置图片段落居中、段前段后间距、禁止图片跨页拆分
+    """
+    image_count = 0
+    # 遍历所有段落，处理内嵌图片
+    for para in doc.paragraphs:
+        # 判断段落是否包含图片
+        has_image = False
+        for run in para.runs:
+            # 检查run里是否有图片元素
+            if run._element.xpath('.//a:blip'):
+                has_image = True
+                image_count += 1
+                break
+        # 包含图片的段落，优化排版，不修改图片本身
+        if has_image:
+            # 段落居中对齐
+            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            # 设置段前段后间距，让排版更美观
+            para.paragraph_format.space_before = Pt(6)
+            para.paragraph_format.space_after = Pt(6)
+            # 禁止段落跨页拆分，避免图片被切成两半
+            para.paragraph_format.keep_with_next = True
+            para.paragraph_format.keep_together = True
+            # 取消首行缩进，避免图片偏移
+            para.paragraph_format.first_line_indent = Cm(0)
+    
+    # 处理文本框/浮动图片（兼容复杂排版的图片）
+    for section in doc.sections:
+        for shape in section.header._element.xpath('.//w:pict') + section.footer._element.xpath('.//w:pict') + doc._element.body.xpath('.//w:pict'):
+            # 禁止浮动图片跨页
+            para_parent = shape.getparent()
+            if para_parent.tag.endswith('p'):
+                for para in doc.paragraphs:
+                    if para._element == para_parent:
+                        para.paragraph_format.keep_together = True
+                        para.paragraph_format.keep_with_next = True
+                        break
+    return image_count
+
+# ====================== 【修复】目录生成函数，兼容异常样式文档 ======================
+def add_table_of_contents(doc, cn_format):
+    """
+    修复后的目录生成函数：
+    1. 兼容样式被重命名的异常文档，不会再触发样式不存在的报错
+    2. 目录标题格式和模板的一级标题格式保持一致
+    """
+    # 目录标题段落
+    toc_title_para = doc.add_paragraph("目录")
+    # 手动设置目录标题格式，和一级标题一致，不依赖内置样式
+    title_cfg = cn_format["一级标题"]
+    title_size_pt = FONT_SIZE_MAP.get(title_cfg["size"], 16)
+    # 设置标题格式
+    toc_title_para.alignment = ALIGN_MAP[title_cfg["align"]]
+    toc_title_para.paragraph_format.space_before = Pt(title_cfg["space_before"])
+    toc_title_para.paragraph_format.space_after = Pt(title_cfg["space_after"])
+    # 设置标题字体
+    for run in toc_title_para.runs:
+        run.font.name = title_cfg["font"]
+        run._element.rPr.rFonts.set(qn('w:eastAsia'), title_cfg["font"])
+        run.font.size = Pt(title_size_pt)
+        run.font.bold = title_cfg["bold"]
+    
+    # 插入目录域（兼容所有文档，不依赖样式）
     para = doc.add_paragraph()
     run = para.add_run()
     fldChar_begin = doc._element.makeelement('w:fldChar', {'w:fldCharType': 'begin'})
@@ -455,7 +521,7 @@ def rewrite_paragraph(text, level_config):
             })
     return "".join(new_sentences), change_log
 
-# ====================== 核心文档处理函数（彻底修复样式报错） ======================
+# ====================== 核心文档处理函数（彻底修复所有报错） ======================
 def process_doc(
     file,
     cn_format,
@@ -490,7 +556,7 @@ def process_doc(
         except Exception as e:
             process_log.append(f"⚠️ 封面页生成失败：{str(e)}")
 
-    # ====================== 【核心修复】4次遍历合并为1次，彻底解决样式报错 ======================
+    # ====================== 4次遍历合并为1次，性能优化 ======================
     try:
         for para in doc.paragraphs:
             original_text = para.text
@@ -511,19 +577,16 @@ def process_doc(
                     para.text = new_text
                     ref_count += 1
 
-            # 3. 【彻底修复】样式绑定，全异常捕获，避免刷屏
+            # 3. 样式绑定，全异常捕获，避免刷屏
             cn_style = cn_format[level]
             en_style = en_format[level]
             if bind_wps_style and level in WPS_STYLE_MAPPING:
                 try:
-                    # 兼容所有版本python-docx，用内置NORMAL样式，不用default_paragraph_style
                     target_style_id = WPS_STYLE_MAPPING[level]
-                    # 先检查样式是否存在于文档中
                     if target_style_id in doc.styles:
                         para.style = doc.styles[target_style_id]
                         para.paragraph_format.outline_level = int(level[0]) if level != "正文" else 10
                 except Exception as e:
-                    # 样式不存在时，只记录1次警告，不刷屏
                     if not style_warn_logged:
                         process_log.append(f"⚠️ 文档内置样式异常，已跳过WPS标题样式绑定，格式设置不受影响：{str(e)}")
                         style_warn_logged = True
@@ -560,6 +623,16 @@ def process_doc(
     except Exception as e:
         raise Exception(f"文档段落处理失败：{str(e)}")
 
+    # ====================== 【新增】图片排版优化 ======================
+    try:
+        image_count = optimize_image_layout(doc)
+        if image_count > 0:
+            process_log.append(f"✅ 文档图片处理完成，共优化{image_count}张图片排版，原图片内容/尺寸完全保留")
+        else:
+            process_log.append("✅ 文档中未检测到图片，跳过图片处理")
+    except Exception as e:
+        process_log.append(f"⚠️ 图片排版优化失败：{str(e)}")
+
     # 表格格式统一处理
     try:
         cn_table_style = cn_format["表格"]
@@ -591,10 +664,10 @@ def process_doc(
     except Exception as e:
         process_log.append(f"⚠️ 表格格式设置失败：{str(e)}")
 
-    # 目录生成
+    # 目录生成（修复后，传入格式配置，兼容异常文档）
     if add_toc:
         try:
-            doc = add_table_of_contents(doc)
+            doc = add_table_of_contents(doc, cn_format)
             process_log.append("✅ 自动生成目录完成")
         except Exception as e:
             process_log.append(f"⚠️ 目录生成失败：{str(e)}")
@@ -658,7 +731,7 @@ def generate_report(changes, rewrite_level, title_stats, process_log, check_repo
             report += f"改后：{change['modified']}\n\n"
     return report.encode("utf-8")
 
-# ====================== Streamlit主界面（优化重渲染） ======================
+# ====================== Streamlit主界面 ======================
 def main():
     st.set_page_config(
         page_title=APP_NAME,
@@ -666,7 +739,7 @@ def main():
         page_icon="🏆",
         initial_sidebar_state="expanded"
     )
-    # 初始化页面状态（优化：减少rerun触发）
+    # 初始化页面状态
     if "current_template" not in st.session_state:
         st.session_state.current_template = "三创赛"
         st.session_state.cn_format, st.session_state.en_format = get_cached_template("三创赛")
@@ -677,7 +750,7 @@ def main():
 
     # 页面标题
     st.title(f"🏆 {APP_NAME}")
-    st.success("✅ 适配三创赛/挑战杯/互联网+等竞赛 | 本科/硕士/期刊论文模板 | 自动封面/页眉页脚/目录 | WPS标题绑定")
+    st.success("✅ 适配三创赛/挑战杯/互联网+等竞赛 | 本科/硕士/期刊论文模板 | 图片无损保留 | 自动封面/页眉页脚/目录")
     st.divider()
 
     # 顶部模板选择
@@ -688,7 +761,7 @@ def main():
             options=list(ALL_TEMPLATES.keys()),
             index=list(ALL_TEMPLATES.keys()).index(st.session_state.current_template)
         )
-        # 模板切换优化：用缓存减少深拷贝
+        # 模板切换
         if selected_template != st.session_state.current_template:
             st.session_state.current_template = selected_template
             st.session_state.cn_format, st.session_state.en_format = get_cached_template(selected_template)
@@ -869,7 +942,7 @@ def main():
 
     # 右侧主区域：文件上传与处理
     st.subheader("📁 文档上传与处理")
-    st.caption(f"⚠️ 单文件最大支持 {MAX_FILE_SIZE_MB}MB，仅支持 .docx 格式")
+    st.caption(f"⚠️ 单文件最大支持 {MAX_FILE_SIZE_MB}MB，仅支持 .docx 格式 | 图片将完全保留原尺寸/清晰度，仅优化排版")
     files = st.file_uploader(
         "上传 .docx 格式的文档（支持多选批量处理）",
         type=["docx"],
@@ -896,8 +969,8 @@ def main():
             st.markdown("**🏷️ WPS标题绑定**")
             st.write("自动识别标题层级，绑定WPS原生样式，导航窗格自动生成")
         with col_func2:
-            st.markdown("**📄 封面/页眉页脚**")
-            st.write("一键生成符合要求的封面、页眉页脚，不用手动排版")
+            st.markdown("**🖼️ 图片无损保留**")
+            st.write("完全保留原图片尺寸/清晰度，自动优化排版，禁止跨页拆分")
         with col_func3:
             st.markdown("**📚 参考文献标准化**")
             st.write("自动修正为GB/T 7714国标格式，符合学术规范")
