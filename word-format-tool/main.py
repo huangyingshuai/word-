@@ -143,32 +143,29 @@ random.seed(42)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
 
-# ✅ 终极修复：100%精准识别标题，彻底过滤正文分点
+# ✅ 平衡版：保留识别能力，只过滤最明显的正文列表
 def get_title_level(para_text):
     text = para_text.strip()
-    # 【绝对过滤规则1】带句末标点的直接判定为正文，标题不会以句号、分号、感叹号、问号结尾
-    if not text or len(text) < 2 or text.endswith(("。", "；", "！", "？", ".", ";", "!")):
-        return "正文"
-    # 【绝对过滤规则2】带圆括号序号的（1）（2）直接判定为正文，论文里这类100%是正文分点
-    if re.match(r'^\s*（\d+）', para_text) or re.match(r'^\s*\(\d+\)', para_text):
-        return "正文"
-    # 【绝对过滤规则3】内容里带冒号、是完整陈述句的，直接判定为正文
-    if "：" in text or ":" in text:
+    if not text or len(text) < 2:
         return "正文"
     
-    # 【精准匹配规则】仅匹配规范的章节标题
-    # 三级标题：严格匹配 x.x.x + 空格 + 主题文字（论文标准三级标题）
-    if re.match(r'^\s*\d+\.\d+\.\d+\s+[\u4e00-\u9fa5A-Za-z]', para_text):
+    # 【核心过滤】只过滤这两类最明显的误识别：
+    # 1. 带圆括号的 (1)（1）这类，100%是正文分点
+    if re.match(r'^\s*（\d+）', para_text) or re.match(r'^\s*\(\d+\)', para_text):
+        return "正文"
+    # 2. 结尾带分号/句号，且是纯数字+点开头的完整句子 (如 "1. 每期视频的播放量...。")
+    if (text.endswith("。") or text.endswith("；") or text.endswith(";")) and re.match(r'^\s*\d+\.\s', para_text):
+        return "正文"
+    
+    # 【保留识别】其他情况按上一版逻辑正常识别
+    if re.match(r'^\s*\d+\.\d+\.\d+[.、]?[\s\u3000]*', para_text):
         return "三级标题"
-    # 二级标题：严格匹配 x.x + 空格 + 主题文字（论文标准二级标题）
-    elif re.match(r'^\s*\d+\.\d+\s+[\u4e00-\u9fa5A-Za-z]', para_text):
+    elif re.match(r'^\s*\d+\.\d+[.、]?[\s\u3000]*', para_text):
         return "二级标题"
-    # 一级标题：严格匹配 第X章 / 中文大写数字+、 / 数字.+主题（仅章节级）
-    elif re.match(r'^\s*第[一二三四五六七八九十百]+章\s+', para_text) \
-            or re.match(r'^\s*[一二三四五六七八九十]+、\s+[\u4e00-\u9fa5A-Za-z]', para_text) \
-            or re.match(r'^\s*\d+\.\s+[\u4e00-\u9fa5A-Za-z]', para_text):
+    elif re.match(r'^\s*第[一二三四五六七八九十]+章[.、]?[\s\u3000]*', para_text) \
+            or re.match(r'^\s*[一二三四五六七八九十]+、[\s\u3000]*', para_text) \
+            or re.match(r'^\s*\d+[、.][\s\u3000]*', para_text):
         return "一级标题"
-    # 其余全部判定为正文
     else:
         return "正文"
 
@@ -493,7 +490,7 @@ def main():
         st.session_state.version = 0
 
     st.title(f"🏆 {APP_NAME}")
-    st.success("✅ 精准标题识别 | 格式标准化 | 智能降重 | WPS导航栏自动生成")
+    st.success("✅ 平衡版标题识别 | 格式标准化 | 智能降重 | WPS导航栏自动生成")
     st.divider()
 
     col1, col2, col3 = st.columns([2, 2, 1])
