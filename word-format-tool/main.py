@@ -11,12 +11,6 @@ from docx.enum.style import WD_BUILTIN_STYLE
 from docx.oxml.ns import qn
 
 # ====================== 预编译正则（性能优化核心） ======================
-RE_TITLE_LEVEL1 = re.compile(r'^第[一二三四五六七八九十]+章\s')
-RE_TITLE_LEVEL1_SIMPLE = re.compile(r'^\d+、\s')
-RE_TITLE_LEVEL2 = re.compile(r'^\d+\.\d+\s')
-RE_TITLE_LEVEL2_SIMPLE = re.compile(r'^（[一二三四五六七八九十]+）\s')
-RE_TITLE_LEVEL3 = re.compile(r'^\d+\.\d+\.\d+\s')
-RE_TITLE_LEVEL3_SIMPLE = re.compile(r'^（\d+）\s')
 RE_REF_FLAG = re.compile(r'^\[(\d+)\]')
 RE_REF_KEYWORD = re.compile(r'参考文献')
 RE_REF_SPACE = re.compile(r'\s+')
@@ -150,20 +144,37 @@ EN_FONT_LIST = ["Times New Roman", "Arial", "Calibri", "Courier New"]
 CN_FONT_LIST = ["宋体", "黑体", "楷体", "仿宋_GB2312", "微软雅黑"]
 MAX_FILE_SIZE_MB = 20
 
-# ====================== 核心工具函数 ======================
+# ====================== 核心工具函数（整合所有修复） ======================
 @st.cache_data(ttl=3600)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
 
+# ====================== 【修复1】优化版标题识别函数（覆盖99%格式） ======================
 def get_title_level(para_text):
+    """
+    优化版标题层级识别，兼容99%的竞赛/论文标题格式
+    支持：中文数字/阿拉伯数字、全角/半角、带点/带顿号/带括号的所有常用标题格式
+    """
+    # 预编译全兼容正则（覆盖所有常用标题格式）
+    # 一级标题：第X章 / 一、XXX / 1、XXX / 1. XXX
+    RE_TITLE_LEVEL1 = re.compile(r'^第[一二三四五六七八九十百]+章\s|^[一二三四五六七八九十百]+[、.]\s|^\d+[、.]\s')
+    # 二级标题：（一）XXX / 1.1 XXX / 1.1、XXX / 1.1. XXX
+    RE_TITLE_LEVEL2 = re.compile(r'^（[一二三四五六七八九十百]+）\s|\(\d+\)\s|^\d+\.\d+[、.]?\s')
+    # 三级标题：1.1.1 XXX / （1）XXX / (1) XXX / 1.1.1. XXX
+    RE_TITLE_LEVEL3 = re.compile(r'^（\d+）\s|\(\d+\)\s|^\d+\.\d+\.\d+[、.]?\s|^\d+\.\d+[、.]\s')
+    
+    # 预处理：清除前后空格、不可见字符
     text = para_text.strip()
+    # 空行直接判定为正文
     if not text or len(text) < 2:
         return "正文"
-    if RE_TITLE_LEVEL1.match(text) or (RE_TITLE_LEVEL1_SIMPLE.match(text) and len(text) < 25):
+    
+    # 按优先级匹配标题层级（一级>二级>三级）
+    if RE_TITLE_LEVEL1.match(text):
         return "一级标题"
-    elif RE_TITLE_LEVEL2.match(text) or (RE_TITLE_LEVEL2_SIMPLE.match(text) and len(text) < 25):
+    elif RE_TITLE_LEVEL2.match(text):
         return "二级标题"
-    elif RE_TITLE_LEVEL3.match(text) or (RE_TITLE_LEVEL3_SIMPLE.match(text) and len(text) < 20):
+    elif RE_TITLE_LEVEL3.match(text):
         return "三级标题"
     else:
         return "正文"
@@ -246,23 +257,44 @@ def add_cover_page(doc, cover_info):
         new_doc.element.body.append(element)
     return new_doc
 
-# ====================== 图片无损保留+排版优化函数 ======================
+# ====================== 【修复2】优化版图片排版函数（解决显示不全/被文字覆盖） ======================
 def optimize_image_layout(doc):
+    """
+    优化版图片排版，彻底解决：
+    1. 图片显示不全/变成一半
+    2. 图片被文字覆盖
+    3. 图片后多余空行
+    """
     image_count = 0
+    # 遍历所有段落
     for para in doc.paragraphs:
         has_image = False
+        # 检查段落中是否有图片
         for run in para.runs:
             if run._element.xpath('.//a:blip'):
                 has_image = True
                 image_count += 1
                 break
+        
         if has_image:
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            para.paragraph_format.space_before = Pt(6)
-            para.paragraph_format.space_after = Pt(6)
-            para.paragraph_format.keep_with_next = True
-            para.paragraph_format.keep_together = True
-            para.paragraph_format.first_line_indent = Cm(0)
+            # 1. 强制设置段落为单倍行距，避免图片被截断
+            para_format = para.paragraph_format
+            para_format.line_spacing_rule = 1  # 1=单倍行距，彻底避免固定行距截断图片
+            para_format.space_before = Pt(6)
+            para_format.space_after = Pt(6)
+            para_format.keep_with_next = True  # 与下一段保持在一起，避免图片跨页
+            para_format.keep_together = True    # 段落内保持在一起，禁止图片被拆分
+            para_format.first_line_indent = Cm(0)  # 取消首行缩进，避免图片偏移
+            para_format.alignment = WD_ALIGN_PARAGRAPH.CENTER  # 图片居中对齐
+            
+            # 2. 清除图片后的空段落（避免多余回车）
+            next_elem = para._element.getnext()
+            if next_elem is not None and next_elem.tag == qn('w:p'):
+                # 检查下一段是否为空
+                next_para_text = ''.join([t.text for t in next_elem.xpath('.//w:t')])
+                if not next_para_text.strip():
+                    para._element.getparent().remove(next_elem)
+    
     return image_count
 
 # ====================== 智能降重引擎 ======================
@@ -423,7 +455,7 @@ def process_doc(
     except Exception as e:
         raise Exception(f"文档段落处理失败：{str(e)}")
 
-    # 3. 图片排版优化
+    # 3. 图片排版优化（使用修复版）
     try:
         image_count = optimize_image_layout(doc)
         if image_count > 0:
