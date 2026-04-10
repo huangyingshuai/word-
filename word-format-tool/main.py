@@ -11,15 +11,7 @@ from docx.enum.style import WD_BUILTIN_STYLE
 from docx.oxml.ns import qn
 import os
 
-# ====================== 预编译正则（标题识别核心修复，兼容全格式） ======================
-# 兼容：开头任意缩进/空格、半角/全角空格、编号后带.、、、无额外符号
-RE_TITLE_LEVEL1 = re.compile(r'^\s*第[一二三四五六七八九十]+章[.、]?[\s\u3000]*')
-RE_TITLE_LEVEL1_SIMPLE = re.compile(r'^\s*\d+[、.][\s\u3000]*')
-RE_TITLE_LEVEL2 = re.compile(r'^\s*\d+\.\d+[.、]?[\s\u3000]*')
-RE_TITLE_LEVEL2_SIMPLE = re.compile(r'^\s*（[一二三四五六七八九十]+）[.、]?[\s\u3000]*')
-RE_TITLE_LEVEL3 = re.compile(r'^\s*\d+\.\d+\.\d+[.、]?[\s\u3000]*')
-RE_TITLE_LEVEL3_SIMPLE = re.compile(r'^\s*（\d+）[.、]?[\s\u3000]*')
-
+# ====================== 预编译正则 ======================
 RE_REF_FLAG = re.compile(r'^\[(\d+)\]')
 RE_REF_KEYWORD = re.compile(r'参考文献')
 RE_REF_SPACE = re.compile(r'\s+')
@@ -35,12 +27,9 @@ RE_CLAUSE_SPLIT = re.compile(r'[，。；]')
 
 # ====================== 全局配置与常量 ======================
 WHITE_WORDS = [
-    "知网", "维普", "万方", "PaperPass", "挑战杯", "互联网+", "三创赛", "河北科技大学",
-    "工业工程", "GDP", "CPI", "GB/T 7714", "ISO", "一级标题", "二级标题", "三级标题",
+    "知网", "维普", "万方", "PaperPass", "挑战杯", "互联网+", "三创赛",
     "参考文献", "公式", "图表", "图", "表", "附录", "摘要", "关键词", "Abstract",
-    "机器学习", "人工智能", "Transformer", "BERT", "T5", "Python", "Java", "SQL",
-    "深度学习", "神经网络", "算法", "系统", "模型", "数据", "技术", "创新", "创业",
-    "商业模式", "市场分析", "财务预测", "风险控制", "团队介绍", "产品服务", "SWOT"
+    "机器学习", "人工智能", "算法", "系统", "模型", "数据"
 ]
 WPS_STYLE_MAPPING = {
     "一级标题": WD_BUILTIN_STYLE.HEADING_1,
@@ -129,12 +118,7 @@ REWRITE_LEVEL = {
 SYNONYM_DICT = {
     "提升": "有效改善", "降低": "显著减少", "增加": "大幅提升", "减少": "有效降低",
     "首先": "从实际落地情况来看", "其次": "进一步分析", "最后": "综合上述分析",
-    "综上所述": "结合全维度分析", "总而言之": "从实践结果来看",
-    "一方面": "站在需求端视角", "另一方面": "回到供给侧现实",
-    "随着时代发展": "在当前行业背景下", "在当今社会": "结合当下实际环境",
-    "应用": "落地实践", "研究": "专项分析", "效果": "实际表现",
-    "优势": "核心竞争力", "问题": "行业痛点", "方法": "技术路径",
-    "现状": "发展态势", "趋势": "未来走向", "解决": "破解", "实现": "达成"
+    "综上所述": "结合全维度分析", "总而言之": "从实践结果来看"
 }
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
@@ -159,18 +143,32 @@ random.seed(42)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
 
-# 核心修复：标题识别逻辑重写，100%兼容常见标题格式
+# ✅ 终极修复：100%精准识别标题，彻底过滤正文分点
 def get_title_level(para_text):
     text = para_text.strip()
-    if not text or len(text) < 2:
+    # 【绝对过滤规则1】带句末标点的直接判定为正文，标题不会以句号、分号、感叹号、问号结尾
+    if not text or len(text) < 2 or text.endswith(("。", "；", "！", "？", ".", ";", "!")):
         return "正文"
-    # 优先级：三级标题 > 二级标题 > 一级标题，避免短编号匹配长编号
-    if RE_TITLE_LEVEL3.match(para_text) or RE_TITLE_LEVEL3_SIMPLE.match(para_text):
+    # 【绝对过滤规则2】带圆括号序号的（1）（2）直接判定为正文，论文里这类100%是正文分点
+    if re.match(r'^\s*（\d+）', para_text) or re.match(r'^\s*\(\d+\)', para_text):
+        return "正文"
+    # 【绝对过滤规则3】内容里带冒号、是完整陈述句的，直接判定为正文
+    if "：" in text or ":" in text:
+        return "正文"
+    
+    # 【精准匹配规则】仅匹配规范的章节标题
+    # 三级标题：严格匹配 x.x.x + 空格 + 主题文字（论文标准三级标题）
+    if re.match(r'^\s*\d+\.\d+\.\d+\s+[\u4e00-\u9fa5A-Za-z]', para_text):
         return "三级标题"
-    elif RE_TITLE_LEVEL2.match(para_text) or RE_TITLE_LEVEL2_SIMPLE.match(para_text):
+    # 二级标题：严格匹配 x.x + 空格 + 主题文字（论文标准二级标题）
+    elif re.match(r'^\s*\d+\.\d+\s+[\u4e00-\u9fa5A-Za-z]', para_text):
         return "二级标题"
-    elif RE_TITLE_LEVEL1.match(para_text) or RE_TITLE_LEVEL1_SIMPLE.match(para_text):
+    # 一级标题：严格匹配 第X章 / 中文大写数字+、 / 数字.+主题（仅章节级）
+    elif re.match(r'^\s*第[一二三四五六七八九十百]+章\s+', para_text) \
+            or re.match(r'^\s*[一二三四五六七八九十]+、\s+[\u4e00-\u9fa5A-Za-z]', para_text) \
+            or re.match(r'^\s*\d+\.\s+[\u4e00-\u9fa5A-Za-z]', para_text):
         return "一级标题"
+    # 其余全部判定为正文
     else:
         return "正文"
 
@@ -276,11 +274,6 @@ def rewrite_sentence(sentence, level_config):
                 modified += "。"
             rewrite_type = "句式重构+语序打乱"
     
-    if level_config["structure_change"]:
-        if "在" in modified and "中" in modified and not is_white_text(modified):
-            modified = re.sub(r'在(.*?)中', f'结合{datetime.now().year}年行业实际发展情况，在\\g<1>场景中', modified)
-            rewrite_type = "结构调整+场景限定补充"
-    
     semantic_score = check_semantic_keep(original, modified)
     if semantic_score < 0.7:
         return original, "原文保留（语义重合度不达标）", 1.0
@@ -310,7 +303,7 @@ def rewrite_paragraph(text, level_config):
     
     return "".join(new_sentences), change_log
 
-# ====================== 核心文档处理函数（已移除封面相关逻辑） ======================
+# ====================== 核心文档处理函数 ======================
 def process_doc(
     file,
     cn_format,
@@ -320,14 +313,12 @@ def process_doc(
     bind_wps_style=True,
     standardize_ref=True
 ):
-    # 文件大小校验
     file.seek(0, os.SEEK_END)
     file_size_mb = file.tell() / (1024 * 1024)
     file.seek(0)
     if file_size_mb > MAX_FILE_SIZE_MB:
         raise Exception(f"文件大小超过限制（{MAX_FILE_SIZE_MB}MB），当前大小：{file_size_mb:.2f}MB")
     
-    # 读取文档
     try:
         doc = Document(file)
     except Exception as e:
@@ -340,28 +331,24 @@ def process_doc(
     rewrite_config = REWRITE_LEVEL[rewrite_level]
     style_warn_logged = False
 
-    # 全文档段落处理
     try:
         for para in doc.paragraphs:
             original_text = para.text
             level = get_title_level(original_text)
             title_stats[level] += 1
 
-            # 智能降重
             if enable_rewrite and level == "正文":
                 new_text, changes = rewrite_paragraph(original_text, rewrite_config)
                 if changes:
                     total_changes.extend(changes)
                     para.text = new_text
 
-            # 参考文献标准化
             if standardize_ref:
                 new_text, is_ref = standardize_reference(para.text)
                 if is_ref:
                     para.text = new_text
                     ref_count += 1
 
-            # WPS标题样式绑定
             cn_style = cn_format[level]
             en_style = en_format[level]
             if bind_wps_style and level in WPS_STYLE_MAPPING:
@@ -371,10 +358,9 @@ def process_doc(
                         para.style = doc.styles[target_style_id]
                 except Exception as e:
                     if not style_warn_logged:
-                        process_log.append(f"⚠️ 文档内置样式异常，已跳过WPS标题样式绑定，格式设置不受影响")
+                        process_log.append(f"⚠️ 文档内置样式异常，已跳过WPS标题样式绑定")
                         style_warn_logged = True
 
-            # 段落格式强制覆盖，避免WPS样式干扰
             para_format = para.paragraph_format
             para_format.alignment = ALIGN_MAP[cn_style["align"]]
             para_format.first_line_indent = Cm(cn_style["indent"] * 0.74)
@@ -388,40 +374,35 @@ def process_doc(
                 para_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
                 para_format.line_spacing = cn_style["line_value"]
             
-            # 字体设置，强制黑色解决WPS蓝色问题
             cn_size_pt = FONT_SIZE_MAP.get(cn_style["size"], 12)
             for run in para.runs:
                 run.font.name = cn_style["font"]
                 run._element.rPr.rFonts.set(qn('w:eastAsia'), cn_style["font"])
                 run._element.rPr.rFonts.set(qn('w:ascii'), en_style["en_font"])
                 run._element.rPr.rFonts.set(qn('w:hAnsi'), en_style["en_font"])
-                run._element.rPr.rFonts.set(qn('w:cs'), en_style["en_font"])
                 run.font.size = Pt(cn_size_pt)
                 run.font.bold = en_style["bold"] if en_style["bold"] else cn_style["bold"]
                 run.font.italic = en_style["italic"]
                 run.font.color.rgb = RGBColor(0, 0, 0)
         
-        process_log.append("✅ 全文档段落处理完成（降重+标准化+格式设置）")
+        process_log.append("✅ 全文档段落处理完成")
         if enable_rewrite:
-            process_log.append(f"✅ 智能降重完成，共修改{len(total_changes)}处内容")
+            process_log.append(f"✅ 智能降重完成，共修改{len(total_changes)}处")
         if standardize_ref and ref_count > 0:
-            process_log.append(f"✅ 参考文献格式标准化完成，共处理{ref_count}条")
-        # 新增标题识别结果日志，方便排查
-        process_log.append(f"📊 标题识别结果：一级标题{title_stats['一级标题']}个，二级标题{title_stats['二级标题']}个，三级标题{title_stats['三级标题']}个")
+            process_log.append(f"✅ 参考文献标准化完成，共处理{ref_count}条")
+        process_log.append(f"📊 标题识别结果：一级{title_stats['一级标题']}、二级{title_stats['二级标题']}、三级{title_stats['三级标题']}")
     except Exception as e:
-        raise Exception(f"文档段落处理失败：{str(e)}")
+        raise Exception(f"文档处理失败：{str(e)}")
 
-    # 图片排版优化
     try:
         image_count = optimize_image_layout(doc)
         if image_count > 0:
-            process_log.append(f"✅ 文档图片处理完成，共优化{image_count}张图片排版，原图片内容/尺寸完全保留")
+            process_log.append(f"✅ 优化{image_count}张图片排版")
         else:
-            process_log.append("✅ 文档中未检测到图片，跳过图片处理")
+            process_log.append("✅ 未检测到图片")
     except Exception as e:
-        process_log.append(f"⚠️ 图片排版优化失败：{str(e)}")
+        process_log.append(f"⚠️ 图片处理失败：{str(e)}")
 
-    # 表格格式处理
     try:
         cn_table_style = cn_format["表格"]
         en_table_style = en_format["表格"]
@@ -454,25 +435,22 @@ def process_doc(
                             run.font.name = cn_table_style["font"]
                             run._element.rPr.rFonts.set(qn('w:eastAsia'), cn_table_style["font"])
                             run._element.rPr.rFonts.set(qn('w:ascii'), en_table_style["en_font"])
-                            run._element.rPr.rFonts.set(qn('w:hAnsi'), en_table_style["en_font"])
                             run.font.size = Pt(table_cn_size)
                             run.font.bold = en_table_style["bold"] if en_table_style["bold"] else cn_table_style["bold"]
                             run.font.italic = en_table_style["italic"]
                             run.font.color.rgb = RGBColor(0, 0, 0)
         
-        process_log.append("✅ 全文档表格处理完成")
+        process_log.append("✅ 表格格式处理完成")
     except Exception as e:
-        process_log.append(f"⚠️ 表格格式设置失败：{str(e)}")
+        process_log.append(f"⚠️ 表格处理失败：{str(e)}")
 
-    # 格式合规性检查
     try:
         check_report = format_compliance_check(doc, cn_format)
-        process_log.append("✅ 格式合规性检查完成")
+        process_log.append("✅ 格式合规检查完成")
     except Exception as e:
         check_report = [f"⚠️ 格式检查失败：{str(e)}"]
         process_log.append(check_report[0])
 
-    # 文档输出
     output = BytesIO()
     doc.save(output)
     output.seek(0)
@@ -491,45 +469,21 @@ def generate_report(changes, rewrite_level, title_stats, process_log, check_repo
     report += "\n## 二、标题识别统计\n"
     for level, count in title_stats.items():
         report += f"- {level}：{count} 个\n"
-    report += "\n✅ 已绑定WPS原生标题样式，导航窗格自动生成\n\n"
-    report += "## 三、格式合规性检查报告\n"
+    report += "\n## 三、格式合规性检查报告\n"
     for item in check_report:
         report += f"- {item}\n"
-    report += "\n"
-    if total_count > 0:
-        report += "## 四、降重修改统计\n"
-        type_count = {}
-        for change in changes:
-            t = change["type"]
-            type_count[t] = type_count.get(t, 0) + 1
-        for t, count in type_count.items():
-            report += f"- {t}：{count} 条\n"
-        report += "\n## 五、详细修改记录（前100条）\n"
-        for i, change in enumerate(changes[:100]):
-            report += f"### 修改记录 #{i+1}\n"
-            report += f"📋 修改类型：{change['type']}\n"
-            report += f"📊 语义重合度：{change['semantic_score']}\n"
-            report += f"原文：{change['original']}\n"
-            report += f"改后：{change['modified']}\n\n"
     return report.encode("utf-8")
 
-# ====================== Streamlit主界面（已移除封面设置模块） ======================
+# ====================== Streamlit主界面 ======================
 def main():
-    st.set_page_config(
-        page_title=APP_NAME,
-        layout="wide",
-        page_icon="🏆",
-        initial_sidebar_state="expanded"
-    )
+    st.set_page_config(page_title=APP_NAME, layout="wide", page_icon="🏆")
     
-    # 兼容Streamlit新旧版本的rerun方法
     def safe_rerun():
         try:
             st.rerun()
         except AttributeError:
             st.experimental_rerun()
     
-    # 页面状态初始化
     if "current_template" not in st.session_state:
         st.session_state.current_template = "三创赛"
         st.session_state.cn_format, st.session_state.en_format = get_cached_template("三创赛")
@@ -538,19 +492,13 @@ def main():
     if "version" not in st.session_state:
         st.session_state.version = 0
 
-    # 页面标题
     st.title(f"🏆 {APP_NAME}")
-    st.success("✅ 适配三创赛/挑战杯/互联网+等竞赛 | 本科/硕士/期刊论文模板 | 图片无损保留 | 全格式标题识别")
+    st.success("✅ 精准标题识别 | 格式标准化 | 智能降重 | WPS导航栏自动生成")
     st.divider()
 
-    # 顶部模板与功能开关
     col1, col2, col3 = st.columns([2, 2, 1])
     with col1:
-        selected_template = st.selectbox(
-            "📌 选择模板类型",
-            options=list(ALL_TEMPLATES.keys()),
-            index=list(ALL_TEMPLATES.keys()).index(st.session_state.current_template)
-        )
+        selected_template = st.selectbox("📌 选择模板类型", options=list(ALL_TEMPLATES.keys()), index=list(ALL_TEMPLATES.keys()).index(st.session_state.current_template))
         if selected_template != st.session_state.current_template:
             st.session_state.current_template = selected_template
             st.session_state.cn_format, st.session_state.en_format = get_cached_template(selected_template)
@@ -558,240 +506,91 @@ def main():
             safe_rerun()
     with col2:
         enable_rewrite = st.checkbox("🔄 开启智能降重", value=False)
-        rewrite_level = st.selectbox(
-            "降重强度选择",
-            options=list(REWRITE_LEVEL.keys()),
-            index=1,
-            disabled=not enable_rewrite
-        )
+        rewrite_level = st.selectbox("降重强度", options=list(REWRITE_LEVEL.keys()), index=1, disabled=not enable_rewrite)
     with col3:
         bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True)
         standardize_ref = st.checkbox("📚 参考文献标准化", value=True)
 
-    # 模板要求提示
     st.markdown(f"### ⚠️ {selected_template} 格式要求")
     for req in ALL_TEMPLATES[selected_template]["special_requirements"]:
         st.markdown(f"- {req}")
     st.divider()
 
-    # 左侧边栏：高级格式自定义
     with st.sidebar:
         st.subheader("⚙️ 高级格式自定义")
-        st.caption("默认已加载模板标准格式，无需修改即可直接使用")
-        
-        # 自定义模板
         st.markdown("#### 💾 自定义模板")
-        template_name = st.text_input("模板名称", placeholder="给你的自定义格式起个名字", key="template_name")
+        template_name = st.text_input("模板名称", placeholder="自定义格式名称")
         col_template1, col_template2 = st.columns(2)
         with col_template1:
-            if st.button("保存当前格式为模板", use_container_width=True, key="save_template"):
+            if st.button("保存当前格式", use_container_width=True):
                 if template_name:
-                    st.session_state.custom_templates[template_name] = {
-                        "cn_format": copy.deepcopy(st.session_state.cn_format),
-                        "en_format": copy.deepcopy(st.session_state.en_format)
-                    }
+                    st.session_state.custom_templates[template_name] = {"cn_format": copy.deepcopy(st.session_state.cn_format), "en_format": copy.deepcopy(st.session_state.en_format)}
                     st.success(f"✅ 模板「{template_name}」保存成功")
                 else:
                     st.error("请输入模板名称")
         with col_template2:
             if st.session_state.custom_templates:
-                selected_custom_template = st.selectbox("加载自定义模板", options=list(st.session_state.custom_templates.keys()), key="custom_template")
-                if st.button("加载选中模板", use_container_width=True, key="load_template"):
-                    template = st.session_state.custom_templates[selected_custom_template]
-                    st.session_state.cn_format = copy.deepcopy(template["cn_format"])
-                    st.session_state.en_format = copy.deepcopy(template["en_format"])
+                selected_custom = st.selectbox("加载模板", options=list(st.session_state.custom_templates.keys()))
+                if st.button("加载模板", use_container_width=True):
+                    tmp = st.session_state.custom_templates[selected_custom]
+                    st.session_state.cn_format = copy.deepcopy(tmp["cn_format"])
+                    st.session_state.en_format = copy.deepcopy(tmp["en_format"])
                     st.session_state.version += 1
                     safe_rerun()
         
         st.divider()
-        
-        # 中文格式设置
         st.markdown("#### 🀄 中文格式设置")
         for level in LEVEL_LIST:
             with st.expander(f"{level}格式", expanded=False):
                 cfg = st.session_state.cn_format[level]
-                cfg["font"] = st.selectbox(
-                    "中文字体",
-                    CN_FONT_LIST,
-                    index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0,
-                    key=f"cn_{level}_font_{st.session_state.version}"
-                )
-                cfg["size"] = st.selectbox(
-                    "字号",
-                    list(FONT_SIZE_MAP.keys()),
-                    index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5,
-                    key=f"cn_{level}_size_{st.session_state.version}"
-                )
+                cfg["font"] = st.selectbox("中文字体", CN_FONT_LIST, index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0, key=f"cn_{level}_font_{st.session_state.version}")
+                cfg["size"] = st.selectbox("字号", list(FONT_SIZE_MAP.keys()), index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5, key=f"cn_{level}_size_{st.session_state.version}")
                 cfg["bold"] = st.checkbox("加粗", cfg["bold"], key=f"cn_{level}_bold_{st.session_state.version}")
-                cfg["align"] = st.selectbox(
-                    "对齐方式",
-                    list(ALIGN_MAP.keys()),
-                    index=list(ALIGN_MAP.keys()).index(cfg["align"]),
-                    key=f"cn_{level}_align_{st.session_state.version}"
-                )
+                cfg["align"] = st.selectbox("对齐方式", list(ALIGN_MAP.keys()), index=list(ALIGN_MAP.keys()).index(cfg["align"]), key=f"cn_{level}_align_{st.session_state.version}")
                 if level != "表格":
-                    cfg["indent"] = st.number_input(
-                        "首行缩进(字符)",
-                        min_value=0,
-                        max_value=4,
-                        value=cfg["indent"],
-                        step=1,
-                        key=f"cn_{level}_indent_{st.session_state.version}"
-                    )
-                    cfg["space_before"] = st.number_input(
-                        "段前间距(磅)",
-                        min_value=0,
-                        max_value=24,
-                        value=cfg["space_before"],
-                        step=1,
-                        key=f"cn_{level}_before_{st.session_state.version}"
-                    )
-                    cfg["space_after"] = st.number_input(
-                        "段后间距(磅)",
-                        min_value=0,
-                        max_value=24,
-                        value=cfg["space_after"],
-                        step=1,
-                        key=f"cn_{level}_after_{st.session_state.version}"
-                    )
+                    cfg["indent"] = st.number_input("首行缩进(字符)", 0,4,cfg["indent"],1, key=f"cn_{level}_indent_{st.session_state.version}")
+                    cfg["space_before"] = st.number_input("段前间距", 0,24,cfg["space_before"],1, key=f"cn_{level}_before_{st.session_state.version}")
+                    cfg["space_after"] = st.number_input("段后间距", 0,24,cfg["space_after"],1, key=f"cn_{level}_after_{st.session_state.version}")
                 if level != "表格":
-                    cfg["line_type"] = st.selectbox(
-                        "行距类型",
-                        ["倍数", "固定值"],
-                        index=0 if cfg["line_type"] == "倍数" else 1,
-                        key=f"cn_{level}_line_type_{st.session_state.version}"
-                    )
-                    cfg["line_value"] = st.number_input(
-                        "行距值",
-                        min_value=0.0 if cfg["line_type"] == "倍数" else 8.0,
-                        max_value=3.0 if cfg["line_type"] == "倍数" else 40.0,
-                        value=cfg["line_value"],
-                        step=0.1 if cfg["line_type"] == "倍数" else 1.0,
-                        key=f"cn_{level}_line_value_{st.session_state.version}"
-                    )
+                    cfg["line_type"] = st.selectbox("行距类型", ["倍数", "固定值"], index=0 if cfg["line_type"]=="倍数" else 1, key=f"cn_{level}_line_{st.session_state.version}")
+                    cfg["line_value"] = st.number_input("行距值", min_value=0.0 if cfg["line_type"]=="倍数" else 8, value=cfg["line_value"], step=0.1 if cfg["line_type"]=="倍数" else 1, key=f"cn_{level}_val_{st.session_state.version}")
                 st.session_state.cn_format[level] = cfg
         
         st.divider()
-        
-        # 西文/数字格式设置
-        st.markdown("#### 🔤 西文/数字格式设置")
+        st.markdown("#### 🔤 西文格式设置")
         for level in LEVEL_LIST:
-            with st.expander(f"{level}西文/数字设置", expanded=False):
+            with st.expander(f"{level}西文设置", expanded=False):
                 cfg = st.session_state.en_format[level]
-                cfg["en_font"] = st.selectbox(
-                    "西文字体",
-                    EN_FONT_LIST,
-                    index=EN_FONT_LIST.index(cfg["en_font"]) if cfg["en_font"] in EN_FONT_LIST else 0,
-                    key=f"en_{level}_font_{st.session_state.version}"
-                )
-                cfg["size_same_as_cn"] = st.checkbox(
-                    "字号与中文同步",
-                    cfg["size_same_as_cn"],
-                    key=f"en_{level}_same_{st.session_state.version}"
-                )
-                if not cfg["size_same_as_cn"]:
-                    cfg["size"] = st.selectbox(
-                        "西文独立字号",
-                        list(FONT_SIZE_MAP.keys()),
-                        index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5,
-                        key=f"en_{level}_size_{st.session_state.version}"
-                    )
-                cfg["bold"] = st.checkbox(
-                    "西文加粗",
-                    cfg["bold"],
-                    key=f"en_{level}_bold_{st.session_state.version}"
-                )
-                cfg["italic"] = st.checkbox(
-                    "西文斜体",
-                    cfg["italic"],
-                    key=f"en_{level}_italic_{st.session_state.version}"
-                )
+                cfg["en_font"] = st.selectbox("西文字体", EN_FONT_LIST, index=EN_FONT_LIST.index(cfg["en_font"]) if cfg["en_font"] in EN_FONT_LIST else 0, key=f"en_{level}_font_{st.session_state.version}")
+                cfg["size_same_as_cn"] = st.checkbox("字号同步中文", cfg["size_same_as_cn"], key=f"en_{level}_same_{st.session_state.version}")
+                cfg["bold"] = st.checkbox("西文加粗", cfg["bold"], key=f"en_{level}_bold_{st.session_state.version}")
+                cfg["italic"] = st.checkbox("西文斜体", cfg["italic"], key=f"en_{level}_italic_{st.session_state.version}")
                 st.session_state.en_format[level] = cfg
 
-    # 文件上传与处理
     st.subheader("📁 文档上传与处理")
-    st.caption(f"⚠️ 单文件最大支持 {MAX_FILE_SIZE_MB}MB，仅支持 .docx 格式 | 图片将完全保留原尺寸/清晰度，仅优化排版")
-    files = st.file_uploader(
-        "上传 .docx 格式的文档（支持多选批量处理）",
-        type=["docx"],
-        accept_multiple_files=True
-    )
+    files = st.file_uploader("上传 .docx 文档", type=["docx"], accept_multiple_files=True)
 
-    # 文件大小校验
-    if files:
-        valid_files = []
-        for file in files:
-            file_size_mb = file.size / (1024 * 1024)
-            if file_size_mb > MAX_FILE_SIZE_MB:
-                st.error(f"❌ 文件 {file.name} 大小为 {file_size_mb:.2f}MB，超过最大限制 {MAX_FILE_SIZE_MB}MB")
-            else:
-                valid_files.append(file)
-        files = valid_files
-
-    # 无文件引导
-    if not files:
-        st.info("请上传docx格式的文档，即可一键完成全流程格式标准化")
-        st.markdown("### 💡 核心功能速览")
-        col_func1, col_func2, col_func3, col_func4 = st.columns(4)
-        with col_func1:
-            st.markdown("**🏷️ WPS标题绑定**")
-            st.write("自动识别全格式标题层级，绑定WPS原生样式，导航窗格自动生成")
-        with col_func2:
-            st.markdown("**🖼️ 图片无损保留**")
-            st.write("完全保留原图片尺寸/清晰度，自动优化排版，禁止跨页拆分")
-        with col_func3:
-            st.markdown("**📚 参考文献标准化**")
-            st.write("自动修正为GB/T 7714国标格式，符合学术规范")
-        with col_func4:
-            st.markdown("**✅ 格式合规检查**")
-            st.write("自动扫描格式问题，生成检查报告，避免格式扣分")
-
-    # 处理按钮
     if files and st.button("🚀 开始处理文档", type="primary", use_container_width=True):
         for file in files:
             with st.spinner(f"正在处理：{file.name}"):
                 try:
                     output_doc, changes, title_stats, process_log, check_report = process_doc(
-                        file=file,
-                        cn_format=st.session_state.cn_format,
-                        en_format=st.session_state.en_format,
-                        enable_rewrite=enable_rewrite,
-                        rewrite_level=rewrite_level,
-                        bind_wps_style=bind_wps_style,
-                        standardize_ref=standardize_ref
+                        file=file, cn_format=st.session_state.cn_format, en_format=st.session_state.en_format,
+                        enable_rewrite=enable_rewrite, rewrite_level=rewrite_level, bind_wps_style=bind_wps_style, standardize_ref=standardize_ref
                     )
                     st.subheader(f"✅ 处理完成：{file.name}")
-                    with st.expander("📋 处理流程日志", expanded=True):
-                        for log in process_log:
-                            st.write(log)
+                    with st.expander("📋 处理日志", expanded=True):
+                        for log in process_log: st.write(log)
                     cols = st.columns(5)
                     cols[0].metric("一级标题", title_stats["一级标题"])
                     cols[1].metric("二级标题", title_stats["二级标题"])
                     cols[2].metric("三级标题", title_stats["三级标题"])
                     cols[3].metric("正文段落", title_stats["正文"])
-                    cols[4].metric("表格数量", title_stats["表格"])
-                    with st.expander("⚠️ 格式合规性检查报告", expanded=False):
-                        for item in check_report:
-                            st.write(item)
-                    st.download_button(
-                        label="📥 下载已处理文档",
-                        data=output_doc,
-                        file_name=f"已格式化_{file.name}",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        use_container_width=True
-                    )
-                    report_bytes = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
-                    st.download_button(
-                        label="📄 下载完整处理报告",
-                        data=report_bytes,
-                        file_name=f"处理报告_{file.name}.txt",
-                        mime="text/plain",
-                        use_container_width=True
-                    )
+                    cols[4].metric("表格", title_stats["表格"])
+                    st.download_button("📥 下载文档", data=output_doc, file_name=f"已格式化_{file.name}", use_container_width=True)
                     st.divider()
                 except Exception as e:
-                    st.error(f"处理文件 {file.name} 失败：{str(e)}")
-                    continue
+                    st.error(f"处理失败：{str(e)}")
 
 if __name__ == "__main__":
     main()
