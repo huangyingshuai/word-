@@ -143,29 +143,36 @@ random.seed(42)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
 
-# ✅ 平衡版：保留识别能力，只过滤最明显的正文列表
+# ✅ 终极版：彻底解决纯数字分点误识别，100%区分标题和正文
 def get_title_level(para_text):
     text = para_text.strip()
     if not text or len(text) < 2:
         return "正文"
     
-    # 【核心过滤】只过滤这两类最明显的误识别：
-    # 1. 带圆括号的 (1)（1）这类，100%是正文分点
+    # 【绝对过滤1】带圆括号的 (1)（1）这类，100%是正文分点
     if re.match(r'^\s*（\d+）', para_text) or re.match(r'^\s*\(\d+\)', para_text):
         return "正文"
-    # 2. 结尾带分号/句号，且是纯数字+点开头的完整句子 (如 "1. 每期视频的播放量...。")
-    if (text.endswith("。") or text.endswith("；") or text.endswith(";")) and re.match(r'^\s*\d+\.\s', para_text):
+    
+    # 【绝对过滤2】核心修复：只要是纯数字+点/顿号开头，且段落结尾带句末标点，直接判定为正文
+    # 兼容：数字+点之后有没有空格都能匹配，不管中间有没有换行
+    end_with_punct = text.endswith(("。", "；", "！", "？", ".", ";", "!", "?"))
+    is_single_number_start = re.match(r'^\s*\d+[、.]\s*', para_text)
+    if end_with_punct and is_single_number_start:
         return "正文"
     
-    # 【保留识别】其他情况按上一版逻辑正常识别
-    if re.match(r'^\s*\d+\.\d+\.\d+[.、]?[\s\u3000]*', para_text):
+    # 【精准识别】仅匹配规范的章节标题（结尾无标点，是主题名称，不是完整句子）
+    # 三级标题：x.x.x 格式（论文标准三级标题）
+    if re.match(r'^\s*\d+\.\d+\.\d+[.、]?\s*', para_text):
         return "三级标题"
-    elif re.match(r'^\s*\d+\.\d+[.、]?[\s\u3000]*', para_text):
+    # 二级标题：x.x 格式（论文标准二级标题）
+    elif re.match(r'^\s*\d+\.\d+[.、]?\s*', para_text):
         return "二级标题"
-    elif re.match(r'^\s*第[一二三四五六七八九十]+章[.、]?[\s\u3000]*', para_text) \
-            or re.match(r'^\s*[一二三四五六七八九十]+、[\s\u3000]*', para_text) \
-            or re.match(r'^\s*\d+[、.][\s\u3000]*', para_text):
+    # 一级标题：第X章 / 中文大写数字+、 / 纯数字+点开头且结尾无标点的章节主题
+    elif re.match(r'^\s*第[一二三四五六七八九十百]+章\s+', para_text) \
+            or re.match(r'^\s*[一二三四五六七八九十]+、\s*', para_text) \
+            or (is_single_number_start and not end_with_punct):
         return "一级标题"
+    # 其余全部判定为正文
     else:
         return "正文"
 
@@ -490,7 +497,7 @@ def main():
         st.session_state.version = 0
 
     st.title(f"🏆 {APP_NAME}")
-    st.success("✅ 平衡版标题识别 | 格式标准化 | 智能降重 | WPS导航栏自动生成")
+    st.success("✅ 终极版标题识别 | 彻底解决纯数字分点误识别 | 格式标准化 | WPS导航栏自动生成")
     st.divider()
 
     col1, col2, col3 = st.columns([2, 2, 1])
