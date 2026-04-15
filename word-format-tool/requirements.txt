@@ -1,14 +1,7 @@
-# 强制使用预编译包，不进行源码编译（核心！）
---only-binary :all:
-
-#  Streamlit：用最稳定的通用版本，不锁范围
-streamlit
-
-# Word文档处理核心
+streamlit>=1.20.0
 python-docx>=0.8.11
-
-# Pillow：直接用最新稳定版，它会自动适配Python 3.12，有预编译包
-pillow
-
-# 其他必要依赖
-numpy>=1.26.0
+pandas>=1.5.0
+requests>=2.28.0
+# 可选依赖，如需处理doc/pdf可取消注释，部署时建议注释掉避免安装失败
+# textract>=1.6.5
+# pdfplumber>=0.10.0
