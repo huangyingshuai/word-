@@ -13,7 +13,6 @@ from docx.oxml.ns import qn
 import os
 import requests
 import pandas as pd
-
 # ====================== 预编译正则 ======================
 RE_REF_FLAG = re.compile(r'^\[(\d+)\]')
 RE_REF_KEYWORD = re.compile(r'参考文献|参考资料|References')
@@ -28,7 +27,6 @@ RE_WHITE_QUOTE = re.compile(r'^\[.*\]$')
 RE_SENTENCE_SPLIT = re.compile(r'(?<=[。！？；])\s*')
 RE_CLAUSE_SPLIT = re.compile(r'[，。；]')
 RE_RED_HIGHLIGHT = re.compile(r'<font color="red">(.*?)</font>', re.DOTALL)
-
 # ====================== 全局配置与常量 ======================
 WHITE_WORDS = [
     "知网", "维普", "万方", "PaperPass", "PaperYY", "PaperFree", "挑战杯", "互联网+", "三创赛",
@@ -41,7 +39,6 @@ WPS_STYLE_MAPPING = {
     "三级标题": WD_BUILTIN_STYLE.HEADING_3,
     "正文": WD_BUILTIN_STYLE.NORMAL
 }
-
 # 竞赛模板
 COMPETITION_FORMATS = {
     "三创赛-全国大学生电子商务创新创意及创业挑战赛": {
@@ -99,7 +96,6 @@ COMPETITION_FORMATS = {
         "special_requirements": ["全文10000字以上", "分创意组/创业组撰写", "需包含完整财务预测", "商业模式需清晰可落地"]
     }
 }
-
 # 高校论文模板
 UNIVERSITY_FORMATS = {
     "清华大学本科毕业论文模板": {
@@ -193,7 +189,6 @@ UNIVERSITY_FORMATS = {
         "special_requirements": ["全文12000-20000字", "需包含中英文摘要", "参考文献需符合GB/T 7714-2015", "页眉标注上海交通大学本科毕业论文"]
     }
 }
-
 THESIS_FORMATS = {
     "本科毕业论文-通用模板": {
         "update_time": "2024-04-01",
@@ -232,7 +227,6 @@ THESIS_FORMATS = {
         "special_requirements": ["全文30000字以上", "需包含中英文摘要", "参考文献需符合GB/T 7714-2015", "需包含创新点说明"]
     }
 }
-
 # 专业期刊模板
 JOURNAL_FORMATS = {
     "MTA - Multimedia Tools and Applications": {
@@ -326,7 +320,6 @@ JOURNAL_FORMATS = {
         "special_requirements": ["单栏排版", "无首行缩进", "参考文献需符合Springer格式", "图表需单独标注", "全文不超过15页"]
     }
 }
-
 ALL_TEMPLATES = {**COMPETITION_FORMATS, **UNIVERSITY_FORMATS, **THESIS_FORMATS, **JOURNAL_FORMATS}
 REWRITE_LEVEL = {
     "轻度润色": {"synonym": True, "sentence_reorder": False, "structure_change": False},
@@ -355,12 +348,12 @@ EN_FONT_LIST = ["Times New Roman", "Arial", "Calibri", "Courier New"]
 CN_FONT_LIST = ["宋体", "黑体", "楷体", "仿宋_GB2312", "微软雅黑"]
 MAX_FILE_SIZE_MB = 50
 random.seed(42)
-
+# 默认API密钥（用户可自行修改）
+DEFAULT_API_KEY = "sk-xxx-your-default-api-key-here"
 # ====================== 核心工具函数 ======================
 @st.cache_data(ttl=3600)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
-
 def get_title_level(para_text):
     text = para_text.strip()
     if not text or len(text) < 2:
@@ -381,7 +374,6 @@ def get_title_level(para_text):
         return "一级标题"
     else:
         return "正文"
-
 def extract_template_from_doc(file):
     """从文档提取模板，兼容docx/doc/pdf，无textract时降级处理"""
     try:
@@ -407,7 +399,6 @@ def extract_template_from_doc(file):
             return None, text, "仅文本提取"
         else:
             return None, None, "不支持的文件格式"
-
         cn_format = {}
         en_format = {}
         style_stats = {}
@@ -479,7 +470,6 @@ def extract_template_from_doc(file):
         return template_data, None, None
     except Exception as e:
         return None, None, str(e)
-
 def standardize_cnki_reference(text):
     if not text.strip():
         return text, False
@@ -491,7 +481,6 @@ def standardize_cnki_reference(text):
     if RE_REF_FLAG.match(text) or RE_REF_KEYWORD.search(text):
         return text, True
     return text, False
-
 def parse_plagiarism_report(file):
     try:
         content = file.read().decode('utf-8', errors='ignore')
@@ -500,7 +489,6 @@ def parse_plagiarism_report(file):
         return red_parts, plain_text, None
     except Exception as e:
         return None, None, str(e)
-
 def format_compliance_check(doc, cn_format):
     check_report = []
     title_levels = ["一级标题", "二级标题", "三级标题"]
@@ -530,13 +518,13 @@ def format_compliance_check(doc, cn_format):
     if not check_report:
         check_report.append("✅ 文档格式完全符合要求，无违规项")
     return check_report
-
 def optimize_image_layout(doc):
     image_count = 0
     for para in doc.paragraphs:
         has_image = False
         for run in para.runs:
-            if run._element.xpath('.//a:blip'):
+            # 使用local-name避免命名空间问题，兼容不同的文档格式
+            if run._element.xpath('.//*[local-name()="blip"]'):
                 has_image = True
                 image_count += 1
                 break
@@ -548,7 +536,6 @@ def optimize_image_layout(doc):
             para.paragraph_format.keep_together = True
             para.paragraph_format.first_line_indent = Cm(0)
     return image_count
-
 def is_white_text(text):
     text_strip = text.strip()
     for word in WHITE_WORDS:
@@ -559,7 +546,6 @@ def is_white_text(text):
     if RE_WHITE_QUOTE.match(text_strip):
         return True
     return False
-
 def check_semantic_keep(original, modified):
     original_keywords = set(RE_KEYWORDS.findall(original))
     modified_keywords = set(RE_KEYWORDS.findall(modified))
@@ -569,7 +555,6 @@ def check_semantic_keep(original, modified):
         return 0.0 if modified_keywords else 1.0
     overlap = original_keywords & modified_keywords
     return len(overlap) / len(original_keywords)
-
 def call_doubao_api(text, api_key, prompt):
     try:
         headers = {
@@ -590,7 +575,6 @@ def call_doubao_api(text, api_key, prompt):
             return None, f"API调用失败: {response.text}"
     except Exception as e:
         return None, str(e)
-
 def rewrite_sentence(sentence, level_config, api_key=None, forbidden_text=None):
     original = sentence.strip()
     if len(original) < 5 or is_white_text(original):
@@ -620,10 +604,14 @@ def rewrite_sentence(sentence, level_config, api_key=None, forbidden_text=None):
             rewrite_type = "AI智能润色"
     if not api_key or rewrite_type == "无修改":
         if level_config["synonym"]:
+            old_modified = modified
             for old, new in SYNONYM_DICT.items():
-                if old in modified and not is_white_text(old):
-                    modified = modified.replace(old, new)
-                    rewrite_type = "同义词替换"
+                if not is_white_text(old):
+                    # 匹配独立的词语，避免错误替换子串（例如避免"提升机"被错误替换为"有效改善机"）
+                    modified = re.sub(rf'(?<!\w){re.escape(old)}(?!\w)', new, modified)
+            # 检查是否有实际修改，更新处理类型
+            if modified != old_modified:
+                rewrite_type = "同义词替换"
         if level_config["sentence_reorder"]:
             parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
             if len(parts) >= 3 and not is_white_text(modified):
@@ -638,7 +626,6 @@ def rewrite_sentence(sentence, level_config, api_key=None, forbidden_text=None):
     if semantic_score < 0.7:
         return original, "原文保留（语义重合度不达标）", 1.0
     return modified, rewrite_type, round(semantic_score, 4)
-
 def rewrite_paragraph(text, level_config, api_key=None, forbidden_text=None):
     change_log = []
     sentences = RE_SENTENCE_SPLIT.split(text)
@@ -657,7 +644,6 @@ def rewrite_paragraph(text, level_config, api_key=None, forbidden_text=None):
                 "semantic_score": semantic_score
             })
     return "".join(new_sentences), change_log
-
 def process_doc(
     file,
     cn_format,
@@ -794,7 +780,6 @@ def process_doc(
     doc.save(output)
     output.seek(0)
     return output, total_changes, title_stats, process_log, check_report
-
 def generate_report(changes, rewrite_level, title_stats, process_log, check_report):
     total_count = len(changes)
     report = f"# 文档处理报告\n"
@@ -819,7 +804,6 @@ def generate_report(changes, rewrite_level, title_stats, process_log, check_repo
             report += f"- **类型**: {change['type']}\n"
             report += f"- **语义保留**: {change['semantic_score']*100:.1f}%\n"
     return report.encode("utf-8")
-
 def export_template(template_data, export_type="json"):
     if export_type == "json":
         return json.dumps(template_data, ensure_ascii=False, indent=2).encode("utf-8")
@@ -839,7 +823,6 @@ def export_template(template_data, export_type="json"):
             for k, v in cfg.items():
                 text += f"{k} = {v}\n"
         return text.encode("utf-8")
-
 def import_template(file):
     try:
         content = file.read().decode('utf-8')
@@ -899,7 +882,6 @@ def import_template(file):
             return data, None
     except Exception as e:
         return None, str(e)
-
 def main():
     st.set_page_config(page_title="智能论文&竞赛格式处理平台", layout="wide", page_icon="📝")
     # 兼容新旧版本Streamlit的rerun
@@ -908,7 +890,6 @@ def main():
             st.rerun()
         except AttributeError:
             st.experimental_rerun()
-
     # 初始化session_state
     if "current_template" not in st.session_state:
         st.session_state.current_template = "三创赛-全国大学生电子商务创新创意及创业挑战赛"
@@ -927,365 +908,365 @@ def main():
         st.session_state.learn_history = []
     if "check_result" not in st.session_state:
         st.session_state.check_result = None
-
-    tab1, tab2, tab3, tab4 = st.tabs(["📝 文档处理", "📋 模板管理", "🔍 查重润色", "🤖 AI智能助手"])
-    with tab1:
-        st.title(f"📝 智能论文&竞赛格式处理器")
-        st.success("✅ 支持doc/docx/PDF模板提取 | WPS自动生成导航索引 | 知网参考文献标准化 | 智能规避查重")
-        st.divider()
-        col1, col2, col3 = st.columns([2, 2, 1])
-        with col1:
-            template_options = list(ALL_TEMPLATES.keys()) + list(st.session_state.custom_templates.keys())
-            selected_template = st.selectbox("📌 选择模板类型", options=template_options, 
-                                            index=template_options.index(st.session_state.current_template) if st.session_state.current_template in template_options else 0)
-            if selected_template != st.session_state.current_template:
-                st.session_state.current_template = selected_template
-                if selected_template in ALL_TEMPLATES:
-                    st.session_state.cn_format, st.session_state.en_format = get_cached_template(selected_template)
+    # 左小右大布局，左边1份，右边3份
+    left_col, right_col = st.columns([1, 3])
+    with left_col:
+        st.subheader("⚙️ 格式调整")
+        st.markdown("#### 💾 自定义模板")
+        template_name = st.text_input("模板名称", placeholder="自定义格式名称")
+        col_template1, col_template2 = st.columns(2)
+        with col_template1:
+            if st.button("保存当前格式", use_container_width=True):
+                if template_name:
+                    st.session_state.custom_templates[template_name] = {
+                        "cn_format": copy.deepcopy(st.session_state.cn_format), 
+                        "en_format": copy.deepcopy(st.session_state.en_format),
+                        "update_time": datetime.now().strftime('%Y-%m-%d')
+                    }
+                    st.success(f"✅ 模板「{template_name}」保存成功")
                 else:
-                    tmp = st.session_state.custom_templates[selected_template]
+                    st.error("请输入模板名称")
+        with col_template2:
+            if st.session_state.custom_templates:
+                selected_custom = st.selectbox("加载模板", options=list(st.session_state.custom_templates.keys()))
+                if st.button("加载模板", use_container_width=True):
+                    tmp = st.session_state.custom_templates[selected_custom]
                     st.session_state.cn_format = copy.deepcopy(tmp["cn_format"])
                     st.session_state.en_format = copy.deepcopy(tmp["en_format"])
-                st.session_state.version += 1
-                safe_rerun()
-        with col2:
-            enable_rewrite = st.checkbox("🔄 开启智能润色", value=False)
-            rewrite_level = st.selectbox("润色强度", options=list(REWRITE_LEVEL.keys()), index=1, disabled=not enable_rewrite)
-        with col3:
-            bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True, help="开启后导出的文档在WPS中会自动生成导航目录")
-            standardize_ref = st.checkbox("📚 知网参考文献标准化", value=True, help="自动调整参考文献格式，解决知网查重标红问题")
-        if selected_template in ALL_TEMPLATES:
-            update_time = ALL_TEMPLATES[selected_template].get("update_time", "未知")
-            st.info(f"📅 该模板最后更新时间：{update_time}")
-            st.markdown(f"### ⚠️ {selected_template.split('-')[-1] if '-' in selected_template else selected_template} 格式要求")
-            for req in ALL_TEMPLATES[selected_template]["special_requirements"]:
-                st.markdown(f"- {req}")
-        else:
-            update_time = st.session_state.custom_templates[selected_template].get("update_time", datetime.now().strftime('%Y-%m-%d'))
-            st.info(f"📅 自定义模板，最后更新时间：{update_time}")
+                    st.session_state.current_template = selected_custom
+                    st.session_state.version += 1
+                    safe_rerun()
         st.divider()
-        with st.sidebar:
-            st.subheader("⚙️ 高级格式自定义")
-            st.markdown("#### 💾 自定义模板")
-            template_name = st.text_input("模板名称", placeholder="自定义格式名称")
-            col_template1, col_template2 = st.columns(2)
-            with col_template1:
-                if st.button("保存当前格式", use_container_width=True):
-                    if template_name:
-                        st.session_state.custom_templates[template_name] = {
-                            "cn_format": copy.deepcopy(st.session_state.cn_format), 
-                            "en_format": copy.deepcopy(st.session_state.en_format),
-                            "update_time": datetime.now().strftime('%Y-%m-%d')
-                        }
-                        st.success(f"✅ 模板「{template_name}」保存成功")
+        st.markdown("#### 🀄 中文格式设置")
+        for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
+            with st.expander(f"{level}格式", expanded=False):
+                cfg = st.session_state.cn_format[level]
+                cfg["font"] = st.selectbox("中文字体", CN_FONT_LIST, index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0, key=f"cn_{level}_font_{st.session_state.version}")
+                cfg["size"] = st.selectbox("字号", list(FONT_SIZE_MAP.keys()), index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5, key=f"cn_{level}_size_{st.session_state.version}")
+                cfg["bold"] = st.checkbox("加粗", cfg["bold"], key=f"cn_{level}_bold_{st.session_state.version}")
+                cfg["align"] = st.selectbox("对齐方式", list(ALIGN_MAP.keys()), index=list(ALIGN_MAP.keys()).index(cfg["align"]), key=f"cn_{level}_align_{st.session_state.version}")
+                if level != "表格":
+                    cfg["indent"] = st.number_input("首行缩进(字符)", 0,4,cfg["indent"],1, key=f"cn_{level}_indent_{st.session_state.version}")
+                    cfg["space_before"] = st.number_input("段前间距", 0,24,cfg["space_before"],1, key=f"cn_{level}_before_{st.session_state.version}")
+                    cfg["space_after"] = st.number_input("段后间距", 0,24,cfg["space_after"],1, key=f"cn_{level}_after_{st.session_state.version}")
+                if level != "表格":
+                    cfg["line_type"] = st.selectbox("行距类型", ["倍数", "固定值"], index=0 if cfg["line_type"]=="倍数" else 1, key=f"cn_{level}_line_{st.session_state.version}")
+                    cfg["line_value"] = st.number_input("行距值", min_value=0.0 if cfg["line_type"]=="倍数" else 8, value=cfg["line_value"], step=0.1 if cfg["line_type"]=="倍数" else 1, key=f"cn_{level}_val_{st.session_state.version}")
+                st.session_state.cn_format[level] = cfg
+        st.divider()
+        st.markdown("#### 🔤 西文格式设置")
+        for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
+            with st.expander(f"{level}西文设置", expanded=False):
+                cfg = st.session_state.en_format[level]
+                cfg["en_font"] = st.selectbox("西文字体", EN_FONT_LIST, index=EN_FONT_LIST.index(cfg["en_font"]) if cfg["en_font"] in EN_FONT_LIST else 0, key=f"en_{level}_font_{st.session_state.version}")
+                cfg["size_same_as_cn"] = st.checkbox("字号同步中文", cfg["size_same_as_cn"], key=f"en_{level}_same_{st.session_state.version}")
+                cfg["bold"] = st.checkbox("西文加粗", cfg["bold"], key=f"en_{level}_bold_{st.session_state.version}")
+                cfg["italic"] = st.checkbox("西文斜体", cfg["italic"], key=f"en_{level}_italic_{st.session_state.version}")
+                st.session_state.en_format[level] = cfg
+    with right_col:
+        st.title(f"📝 智能论文&竞赛格式处理平台")
+        st.success("✅ 支持doc/docx/PDF模板提取 | WPS自动生成导航索引 | 知网参考文献标准化 | 智能规避查重")
+        st.divider()
+        # 1. 文档处理与模板选择
+        with st.expander("📝 文档处理与模板选择", expanded=True):
+            col1, col2, col3 = st.columns([2, 2, 1])
+            with col1:
+                template_options = list(ALL_TEMPLATES.keys()) + list(st.session_state.custom_templates.keys())
+                selected_template = st.selectbox("📌 选择模板类型", options=template_options, 
+                                                index=template_options.index(st.session_state.current_template) if st.session_state.current_template in template_options else 0)
+                if selected_template != st.session_state.current_template:
+                    st.session_state.current_template = selected_template
+                    if selected_template in ALL_TEMPLATES:
+                        st.session_state.cn_format, st.session_state.en_format = get_cached_template(selected_template)
                     else:
-                        st.error("请输入模板名称")
-            with col_template2:
-                if st.session_state.custom_templates:
-                    selected_custom = st.selectbox("加载模板", options=list(st.session_state.custom_templates.keys()))
-                    if st.button("加载模板", use_container_width=True):
-                        tmp = st.session_state.custom_templates[selected_custom]
+                        tmp = st.session_state.custom_templates[selected_template]
                         st.session_state.cn_format = copy.deepcopy(tmp["cn_format"])
                         st.session_state.en_format = copy.deepcopy(tmp["en_format"])
-                        st.session_state.current_template = selected_custom
-                        st.session_state.version += 1
-                        safe_rerun()
+                    st.session_state.version += 1
+                    safe_rerun()
+            with col2:
+                enable_rewrite = st.checkbox("🔄 开启智能润色", value=False)
+                rewrite_level = st.selectbox("润色强度", options=list(REWRITE_LEVEL.keys()), index=1, disabled=not enable_rewrite)
+            with col3:
+                bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True, help="开启后导出的文档在WPS中会自动生成导航目录")
+                standardize_ref = st.checkbox("📚 参考文献标准化", value=True, help="自动调整参考文献格式，解决知网查重标红问题")
+            if selected_template in ALL_TEMPLATES:
+                update_time = ALL_TEMPLATES[selected_template].get("update_time", "未知")
+                st.info(f"📅 该模板最后更新时间：{update_time}")
+                st.markdown(f"### ⚠️ {selected_template.split('-')[-1] if '-' in selected_template else selected_template} 格式要求")
+                for req in ALL_TEMPLATES[selected_template]["special_requirements"]:
+                    st.markdown(f"- {req}")
+            else:
+                update_time = st.session_state.custom_templates[selected_template].get("update_time", datetime.now().strftime('%Y-%m-%d'))
+                st.info(f"📅 自定义模板，最后更新时间：{update_time}")
             st.divider()
-            st.markdown("#### 🀄 中文格式设置")
-            for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
-                with st.expander(f"{level}格式", expanded=False):
-                    cfg = st.session_state.cn_format[level]
-                    cfg["font"] = st.selectbox("中文字体", CN_FONT_LIST, index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0, key=f"cn_{level}_font_{st.session_state.version}")
-                    cfg["size"] = st.selectbox("字号", list(FONT_SIZE_MAP.keys()), index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5, key=f"cn_{level}_size_{st.session_state.version}")
-                    cfg["bold"] = st.checkbox("加粗", cfg["bold"], key=f"cn_{level}_bold_{st.session_state.version}")
-                    cfg["align"] = st.selectbox("对齐方式", list(ALIGN_MAP.keys()), index=list(ALIGN_MAP.keys()).index(cfg["align"]), key=f"cn_{level}_align_{st.session_state.version}")
-                    if level != "表格":
-                        cfg["indent"] = st.number_input("首行缩进(字符)", 0,4,cfg["indent"],1, key=f"cn_{level}_indent_{st.session_state.version}")
-                        cfg["space_before"] = st.number_input("段前间距", 0,24,cfg["space_before"],1, key=f"cn_{level}_before_{st.session_state.version}")
-                        cfg["space_after"] = st.number_input("段后间距", 0,24,cfg["space_after"],1, key=f"cn_{level}_after_{st.session_state.version}")
-                    if level != "表格":
-                        cfg["line_type"] = st.selectbox("行距类型", ["倍数", "固定值"], index=0 if cfg["line_type"]=="倍数" else 1, key=f"cn_{level}_line_{st.session_state.version}")
-                        cfg["line_value"] = st.number_input("行距值", min_value=0.0 if cfg["line_type"]=="倍数" else 8, value=cfg["line_value"], step=0.1 if cfg["line_type"]=="倍数" else 1, key=f"cn_{level}_val_{st.session_state.version}")
-                    st.session_state.cn_format[level] = cfg
-            st.divider()
-            st.markdown("#### 🔤 西文格式设置")
-            for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
-                with st.expander(f"{level}西文设置", expanded=False):
-                    cfg = st.session_state.en_format[level]
-                    cfg["en_font"] = st.selectbox("西文字体", EN_FONT_LIST, index=EN_FONT_LIST.index(cfg["en_font"]) if cfg["en_font"] in EN_FONT_LIST else 0, key=f"en_{level}_font_{st.session_state.version}")
-                    cfg["size_same_as_cn"] = st.checkbox("字号同步中文", cfg["size_same_as_cn"], key=f"en_{level}_same_{st.session_state.version}")
-                    cfg["bold"] = st.checkbox("西文加粗", cfg["bold"], key=f"en_{level}_bold_{st.session_state.version}")
-                    cfg["italic"] = st.checkbox("西文斜体", cfg["italic"], key=f"en_{level}_italic_{st.session_state.version}")
-                    st.session_state.en_format[level] = cfg
-        st.subheader("📁 文档上传与处理")
-        files = st.file_uploader("上传 .docx 文档", type=["docx"], accept_multiple_files=True)
-        api_key = st.text_input("豆包API Key (可选，用于AI智能润色和查重规避)", type="password")
-        if st.session_state.learned_forbidden:
-            st.info(f"✅ 已学习查重报告，本次润色将自动规避{len(st.session_state.learned_forbidden)}处重复内容")
-        if files and st.button("🚀 开始处理文档", type="primary", use_container_width=True):
-            for file in files:
-                with st.spinner(f"正在处理：{file.name}"):
-                    try:
-                        output_doc, changes, title_stats, process_log, check_report = process_doc(
-                            file=file, cn_format=st.session_state.cn_format, en_format=st.session_state.en_format,
-                            enable_rewrite=enable_rewrite, rewrite_level=rewrite_level, bind_wps_style=bind_wps_style, standardize_ref=standardize_ref,
-                            api_key=api_key, forbidden_text=st.session_state.learned_forbidden
-                        )
-                        st.subheader(f"✅ 处理完成：{file.name}")
-                        st.success("✅ 已为你生成标准格式文档，所有格式均已按照要求调整完成")
-                        with st.expander("📋 处理日志", expanded=True):
-                            for log in process_log: st.write(log)
-                        cols = st.columns(5)
-                        cols[0].metric("一级标题", title_stats["一级标题"])
-                        cols[1].metric("二级标题", title_stats["二级标题"])
-                        cols[2].metric("三级标题", title_stats["三级标题"])
-                        cols[3].metric("正文段落", title_stats["正文"])
-                        cols[4].metric("表格数量", title_stats["表格"])
-                        col_d1, col_d2 = st.columns(2)
-                        with col_d1:
+            # API配置，默认填充我们的API
+            api_key = st.text_input("豆包API Key (默认已配置，可自行修改)", type="password", value=DEFAULT_API_KEY)
+            if st.session_state.learned_forbidden:
+                st.info(f"✅ 已学习查重报告，本次润色将自动规避{len(st.session_state.learned_forbidden)}处重复内容")
+            # 文档上传
+            files = st.file_uploader("上传 .docx 文档", type=["docx"], accept_multiple_files=True)
+            if files and st.button("🚀 开始处理文档", type="primary", use_container_width=True):
+                for file in files:
+                    with st.spinner(f"正在处理：{file.name}"):
+                        try:
+                            output_doc, changes, title_stats, process_log, check_report = process_doc(
+                                file=file, cn_format=st.session_state.cn_format, en_format=st.session_state.en_format,
+                                enable_rewrite=enable_rewrite, rewrite_level=rewrite_level, bind_wps_style=bind_wps_style, standardize_ref=standardize_ref,
+                                api_key=api_key, forbidden_text=st.session_state.learned_forbidden
+                            )
+                            st.subheader(f"✅ 处理完成：{file.name}")
+                            st.success("✅ 已为你生成标准格式文档，所有格式均已按照要求调整完成")
+                            with st.expander("📋 处理日志", expanded=True):
+                                for log in process_log: st.write(log)
+                            cols = st.columns(5)
+                            cols[0].metric("一级标题", title_stats["一级标题"])
+                            cols[1].metric("二级标题", title_stats["二级标题"])
+                            cols[2].metric("三级标题", title_stats["三级标题"])
+                            cols[3].metric("正文段落", title_stats["正文"])
+                            cols[4].metric("表格数量", title_stats["表格"])
+                            col_d1, col_d2 = st.columns(2)
+                            with col_d1:
+                                st.download_button(
+                                    label="📥 下载处理后的标准文档",
+                                    data=output_doc,
+                                    file_name=f"标准格式_{file.name}",
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    use_container_width=True
+                                )
+                            with col_d2:
+                                report = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
+                                st.download_button(
+                                    label="📋 下载处理报告",
+                                    data=report,
+                                    file_name=f"处理报告_{file.name}.txt",
+                                    mime="text/plain",
+                                    use_container_width=True
+                                )
+                        except Exception as e:
+                            st.error(f"处理失败：{str(e)}")
+        # 2. 模板管理与学习
+        with st.expander("📋 模板管理与学习", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("📤 模板导出")
+                if st.session_state.custom_templates:
+                    export_template_name = st.selectbox("选择要导出的模板", options=list(st.session_state.custom_templates.keys()))
+                    export_type = st.radio("导出格式", options=["json", "txt"], index=0)
+                    if st.button("导出模板", use_container_width=True):
+                        template_data = st.session_state.custom_templates[export_template_name]
+                        template_data["name"] = export_template_name
+                        data = export_template(template_data, export_type)
+                        if export_type == "json":
                             st.download_button(
-                                label="📥 下载处理后的标准文档",
-                                data=output_doc,
-                                file_name=f"标准格式_{file.name}",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                label="下载JSON模板",
+                                data=data,
+                                file_name=f"{export_template_name}.json",
+                                mime="application/json",
                                 use_container_width=True
                             )
-                        with col_d2:
-                            report = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
+                        else:
                             st.download_button(
-                                label="📋 下载处理报告",
-                                data=report,
-                                file_name=f"处理报告_{file.name}.txt",
+                                label="下载TXT模板",
+                                data=data,
+                                file_name=f"{export_template_name}.txt",
                                 mime="text/plain",
                                 use_container_width=True
                             )
-                    except Exception as e:
-                        st.error(f"处理失败：{str(e)}")
-    with tab2:
-        st.title("📋 模板管理中心")
-        st.markdown("在这里你可以管理所有格式模板，支持从官方文档自动提取所有格式细节，生成可用的模板，还可以检查你的文档是否符合格式要求")
-        st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("📤 模板导出")
-            if st.session_state.custom_templates:
-                export_template_name = st.selectbox("选择要导出的模板", options=list(st.session_state.custom_templates.keys()))
-                export_type = st.radio("导出格式", options=["json", "txt"], index=0)
-                if st.button("导出模板", use_container_width=True):
-                    template_data = st.session_state.custom_templates[export_template_name]
-                    template_data["name"] = export_template_name
-                    data = export_template(template_data, export_type)
-                    if export_type == "json":
-                        st.download_button(
-                            label="下载JSON模板",
-                            data=data,
-                            file_name=f"{export_template_name}.json",
-                            mime="application/json",
-                            use_container_width=True
-                        )
-                    else:
-                        st.download_button(
-                            label="下载TXT模板",
-                            data=data,
-                            file_name=f"{export_template_name}.txt",
-                            mime="text/plain",
-                            use_container_width=True
-                        )
-            else:
-                st.info("暂无自定义模板，请先在文档处理页面保存自定义模板")
-        with col2:
-            st.subheader("📥 模板导入")
-            uploaded_template = st.file_uploader("上传模板文件", type=["json", "txt"])
-            if uploaded_template:
-                data, error = import_template(uploaded_template)
-                if error:
-                    st.error(f"导入失败：{error}")
-                elif data:
-                    st.success("模板解析成功！")
-                    new_name = st.text_input("模板名称", value=uploaded_template.name.split('.')[0])
-                    if st.button("导入到系统", use_container_width=True):
-                        st.session_state.custom_templates[new_name] = data
-                        st.success(f"✅ 模板「{new_name}」导入成功！")
-                        safe_rerun()
-        st.divider()
-        st.subheader("🔍 格式合规检查")
-        st.markdown("上传你的已完成文档和标准格式模板，系统会自动检查是否符合格式要求，直接告诉你哪部分有问题")
-        col_check1, col_check2 = st.columns(2)
-        with col_check1:
-            user_doc = st.file_uploader("上传你的已完成文档", type=["docx"])
-        with col_check2:
-            standard_template = st.selectbox("选择标准格式模板", options=list(ALL_TEMPLATES.keys()) + list(st.session_state.custom_templates.keys()))
-        if user_doc and st.button("开始检查格式", use_container_width=True):
-            with st.spinner("正在检查格式..."):
-                try:
-                    doc = Document(user_doc)
-                    if standard_template in ALL_TEMPLATES:
-                        cn_format, _ = get_cached_template(standard_template)
-                    else:
-                        tmp = st.session_state.custom_templates[standard_template]
-                        cn_format = tmp["cn_format"]
-                    check_report = format_compliance_check(doc, cn_format)
-                    st.session_state.check_result = check_report
-                    st.success("✅ 检查完成！")
-                    st.subheader("📋 检查结果")
-                    error_count = len([x for x in check_report if x.startswith("⚠️")])
-                    if error_count == 0:
-                        st.success("🎉 你的文档完全符合格式要求！没有任何问题！")
-                    else:
-                        st.warning(f"发现 {error_count} 处格式问题，以下是具体问题：")
-                        for item in check_report:
-                            if item.startswith("⚠️"):
-                                st.error(item)
-                            else:
-                                st.success(item)
-                except Exception as e:
-                    st.error(f"检查失败：{str(e)}")
-        st.divider()
-        st.subheader("🤖 Agent自动模板提取")
-        st.markdown("上传学校/竞赛/期刊的官方格式文档，系统会自动学习并提取所有格式细节，包括表格、图片等复杂格式，生成可用的模板")
-        official_doc = st.file_uploader("上传官方格式文档", type=["doc", "docx", "pdf"], help="支持doc、docx、PDF格式，系统会自动提取所有格式细节")
-        if official_doc:
-            with st.spinner("Agent正在学习文档格式..."):
-                template_data, text, error = extract_template_from_doc(official_doc)
-                if error:
-                    st.error(f"提取失败：{error}")
-                elif template_data:
-                    st.success(f"✅ Agent学习完成！自动生成了模板：{template_data['name']}")
-                    st.json(template_data)
-                    if st.button("应用这个模板", use_container_width=True):
-                        st.session_state.custom_templates[template_data['name']] = template_data
-                        st.session_state.cn_format = copy.deepcopy(template_data["cn_format"])
-                        st.session_state.en_format = copy.deepcopy(template_data["en_format"])
-                        st.session_state.current_template = template_data['name']
-                        st.session_state.version += 1
-                        st.success("模板已应用！你可以直接使用这个新模板处理文档了")
-                        safe_rerun()
                 else:
-                    st.info("仅提取到文本内容，无法解析格式")
-                    st.text_area("提取的文本", text, height=300)
-        st.divider()
-        st.subheader("📊 所有模板列表")
-        template_list = []
-        for name, tpl in ALL_TEMPLATES.items():
-            template_list.append({
-                "名称": name,
-                "类型": "系统内置",
-                "更新时间": tpl.get("update_time", "未知"),
-                "状态": "✅ 可用"
-            })
-        for name, tpl in st.session_state.custom_templates.items():
-            template_list.append({
-                "名称": name,
-                "类型": "自定义",
-                "更新时间": tpl.get("update_time", datetime.now().strftime('%Y-%m-%d')),
-                "状态": "✅ 可用"
-            })
-        df = pd.DataFrame(template_list)
-        st.dataframe(df, use_container_width=True)
-    with tab3:
-        st.title("🔍 查重与智能润色")
-        st.markdown("支持在线查重、本地查重报告解析、智能润色优化，自动规避重复内容")
-        st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("🌐 在线查重")
-            st.info("使用豆包API进行智能查重，需要配置API密钥")
-            api_key_check = st.text_input("豆包API Key", type="password")
-            check_text = st.text_area("输入要查重的文本", height=300)
-            if st.button("开始查重", use_container_width=True):
-                if check_text and api_key_check:
-                    with st.spinner("正在查重中..."):
-                        result, error = call_doubao_api(check_text, api_key_check, "你是一个查重专家，请分析这段文本的重复情况，给出重复率和重复片段")
-                        if not error:
-                            st.success(f"查重完成！")
-                            st.write(result)
-                        else:
-                            st.error(f"查重失败：{error}")
-                else:
-                    st.warning("请填写完整的API信息和待查重文本")
-        with col2:
-            st.subheader("📄 查重报告解析与学习")
-            st.info("上传查重报告，系统会自动学习重复内容，润色时自动规避")
-            report_file = st.file_uploader("上传查重报告", type=["html", "txt"])
-            if report_file:
-                red_parts, plain_text, error = parse_plagiarism_report(report_file)
-                if error:
-                    st.error(f"解析失败：{error}")
-                elif red_parts:
-                    st.success(f"解析完成！发现 {len(red_parts)} 处标红重复内容")
-                    st.session_state.learned_forbidden = red_parts
-                    st.session_state.learn_history.append({
-                        "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        "forbidden_count": len(red_parts)
-                    })
-                    st.subheader("标红内容预览")
-                    for i, part in enumerate(red_parts[:10]):
-                        st.text(f"{i+1}. {part[:100]}...")
-                    if st.button("针对标红部分进行润色", use_container_width=True):
-                        with st.spinner("正在针对性润色..."):
-                            new_text = plain_text
-                            change_count = 0
-                            for part in red_parts:
-                                if len(part) > 10:
-                                    modified, _ = rewrite_paragraph(part, REWRITE_LEVEL["标准润色"], api_key_check, red_parts)
-                                    new_text = new_text.replace(part, modified)
-                                    change_count += 1
-                            st.text_area("润色后的文本", new_text, height=300)
-                            st.success(f"润色完成！共优化 {change_count} 处重复内容")
-    with tab4:
-        st.title("🤖 AI智能助手")
-        st.markdown("上传文档进行学习，然后可以和文档进行智能问答，系统会自动学习你的使用习惯优化策略")
-        st.divider()
-        with st.sidebar:
-            st.subheader("📚 文档学习")
-            doc_file = st.file_uploader("上传学习文档", type=["docx", "txt", "doc", "pdf"])
-            if doc_file:
-                with st.spinner("正在学习文档内容..."):
+                    st.info("暂无自定义模板，请先在左侧保存自定义模板")
+            with col2:
+                st.subheader("📥 模板导入")
+                uploaded_template = st.file_uploader("上传模板文件", type=["json", "txt"])
+                if uploaded_template:
+                    data, error = import_template(uploaded_template)
+                    if error:
+                        st.error(f"导入失败：{error}")
+                    elif data:
+                        st.success("模板解析成功！")
+                        new_name = st.text_input("模板名称", value=uploaded_template.name.split('.')[0])
+                        if st.button("导入到系统", use_container_width=True):
+                            st.session_state.custom_templates[new_name] = data
+                            st.success(f"✅ 模板「{new_name}」导入成功！")
+                            safe_rerun()
+            st.divider()
+            st.subheader("🔍 格式合规检查")
+            st.markdown("上传你的已完成文档和标准格式模板，系统会自动检查是否符合格式要求")
+            col_check1, col_check2 = st.columns(2)
+            with col_check1:
+                user_doc = st.file_uploader("上传你的已完成文档", type=["docx"])
+            with col_check2:
+                standard_template = st.selectbox("选择标准格式模板", options=list(ALL_TEMPLATES.keys()) + list(st.session_state.custom_templates.keys()))
+            if user_doc and st.button("开始检查格式", use_container_width=True):
+                with st.spinner("正在检查格式..."):
                     try:
-                        text = ""
-                        if doc_file.name.endswith('.docx'):
-                            doc = Document(doc_file)
-                            text = "\n".join([p.text for p in doc.paragraphs])
-                        elif doc_file.name.endswith('.txt'):
-                            text = doc_file.read().decode('utf-8')
-                        elif doc_file.name.endswith('.doc') or doc_file.name.endswith('.pdf'):
-                            try:
-                                import textract
-                                temp_path = f"/tmp/{doc_file.name}"
-                                with open(temp_path, 'wb') as f:
-                                    f.write(doc_file.read())
-                                text = textract.process(temp_path).decode('utf-8')
-                                os.remove(temp_path)
-                            except ImportError:
-                                st.error("缺少textract依赖，无法解析doc/pdf文件，请转为docx/txt格式后重试")
-                            except Exception as e:
-                                st.error(f"文件解析失败：{str(e)}")
-                        st.session_state.knowledge_base = text
-                        st.success(f"✅ 文档学习完成！共 {len(text)} 字符")
+                        doc = Document(user_doc)
+                        if standard_template in ALL_TEMPLATES:
+                            cn_format, _ = get_cached_template(standard_template)
+                        else:
+                            tmp = st.session_state.custom_templates[standard_template]
+                            cn_format = tmp["cn_format"]
+                        check_report = format_compliance_check(doc, cn_format)
+                        st.session_state.check_result = check_report
+                        st.success("✅ 检查完成！")
+                        st.subheader("📋 检查结果")
+                        error_count = len([x for x in check_report if x.startswith("⚠️")])
+                        if error_count == 0:
+                            st.success("🎉 你的文档完全符合格式要求！没有任何问题！")
+                        else:
+                            st.warning(f"发现 {error_count} 处格式问题，以下是具体问题：")
+                            for item in check_report:
+                                if item.startswith("⚠️"):
+                                    st.error(item)
+                                else:
+                                    st.success(item)
                     except Exception as e:
-                        st.error(f"学习失败：{str(e)}")
-        st.subheader("学习历史")
-        if st.session_state.learn_history:
-            df_learn = pd.DataFrame(st.session_state.learn_history)
-            st.dataframe(df_learn, use_container_width=True)
-        else:
-            st.info("暂无学习历史")
-        st.divider()
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
-        if prompt := st.chat_input("输入你的问题..."):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.write(prompt)
-            with st.chat_message("assistant"):
-                with st.spinner("思考中..."):
-                    if st.session_state.knowledge_base:
-                        context = st.session_state.knowledge_base[:3000]
-                        response = f"基于你上传的文档，我找到以下相关信息：\n\n文档内容片段：{context[:500]}...\n\n针对你的问题「{prompt}」，我已经学习了你的文档内容。如果配置了豆包API，我可以给出更精准的回答。"
+                        st.error(f"检查失败：{str(e)}")
+            st.divider()
+            st.subheader("🤖 Agent自动模板提取")
+            st.markdown("上传学校/竞赛/期刊的官方格式文档，系统会自动学习并提取所有格式细节，更新模板库")
+            official_doc = st.file_uploader("上传官方格式文档", type=["doc", "docx", "pdf"], help="支持doc、docx、PDF格式，系统会自动提取所有格式细节")
+            if official_doc:
+                with st.spinner("Agent正在学习文档格式..."):
+                    template_data, text, error = extract_template_from_doc(official_doc)
+                    if error:
+                        st.error(f"提取失败：{error}")
+                    elif template_data:
+                        st.success(f"✅ Agent学习完成！自动生成了模板：{template_data['name']}")
+                        st.json(template_data)
+                        if st.button("应用这个模板并更新模板库", use_container_width=True):
+                            st.session_state.custom_templates[template_data['name']] = template_data
+                            st.session_state.cn_format = copy.deepcopy(template_data["cn_format"])
+                            st.session_state.en_format = copy.deepcopy(template_data["en_format"])
+                            st.session_state.current_template = template_data['name']
+                            st.session_state.version += 1
+                            st.success("模板已应用并更新到模板库！你可以直接使用这个新模板处理文档了")
+                            safe_rerun()
                     else:
-                        response = "你还没有上传学习文档哦！请先在侧边栏上传文档，我就可以基于文档内容回答你的问题啦。另外，我还会自动学习你的润色习惯，下次帮你把查重率降得更低！"
-                    st.write(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
+                        st.info("仅提取到文本内容，无法解析格式")
+                        st.text_area("提取的文本", text, height=300)
+            st.divider()
+            st.subheader("📊 所有模板列表")
+            template_list = []
+            for name, tpl in ALL_TEMPLATES.items():
+                template_list.append({
+                    "名称": name,
+                    "类型": "系统内置",
+                    "更新时间": tpl.get("update_time", "未知"),
+                    "状态": "✅ 可用"
+                })
+            for name, tpl in st.session_state.custom_templates.items():
+                template_list.append({
+                    "名称": name,
+                    "类型": "自定义",
+                    "更新时间": tpl.get("update_time", datetime.now().strftime('%Y-%m-%d')),
+                    "状态": "✅ 可用"
+                })
+            df = pd.DataFrame(template_list)
+            st.dataframe(df, use_container_width=True)
+        # 3. 查重与智能润色
+        with st.expander("🔍 查重与智能润色", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("🌐 在线查重")
+                st.info("使用豆包API进行智能查重，默认已配置API，可自行修改")
+                # 默认填充我们的API
+                api_key_check = st.text_input("豆包API Key", type="password", value=DEFAULT_API_KEY)
+                check_text = st.text_area("输入要查重的文本", height=300)
+                if st.button("开始查重", use_container_width=True):
+                    if check_text and api_key_check:
+                        with st.spinner("正在查重中..."):
+                            result, error = call_doubao_api(check_text, api_key_check, "你是一个查重专家，请分析这段文本的重复情况，给出重复率和重复片段")
+                            if not error:
+                                st.success(f"查重完成！")
+                                st.write(result)
+                            else:
+                                st.error(f"查重失败：{error}")
+                    else:
+                        st.warning("请填写完整的API信息和待查重文本")
+            with col2:
+                st.subheader("📄 查重报告解析与学习")
+                st.info("上传查重报告，系统会自动学习重复内容，润色时自动规避")
+                report_file = st.file_uploader("上传查重报告", type=["html", "txt"])
+                if report_file:
+                    red_parts, plain_text, error = parse_plagiarism_report(report_file)
+                    if error:
+                        st.error(f"解析失败：{error}")
+                    elif red_parts:
+                        st.success(f"解析完成！发现 {len(red_parts)} 处标红重复内容")
+                        st.session_state.learned_forbidden = red_parts
+                        st.session_state.learn_history.append({
+                            "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            "forbidden_count": len(red_parts)
+                        })
+                        st.subheader("标红内容预览")
+                        for i, part in enumerate(red_parts[:10]):
+                            st.text(f"{i+1}. {part[:100]}...")
+                        if st.button("针对标红部分进行润色", use_container_width=True):
+                            with st.spinner("正在针对性润色..."):
+                                new_text = plain_text
+                                change_count = 0
+                                for part in red_parts:
+                                    if len(part) > 10:
+                                        modified, _ = rewrite_paragraph(part, REWRITE_LEVEL["标准润色"], api_key_check, red_parts)
+                                        new_text = new_text.replace(part, modified)
+                                        change_count += 1
+                                st.text_area("润色后的文本", new_text, height=300)
+                                st.success(f"润色完成！共优化 {change_count} 处重复内容")
+        # 4. AI智能助手
+        with st.expander("🤖 AI智能助手", expanded=False):
+            st.markdown("上传文档进行学习，然后可以和文档进行智能问答")
+            st.divider()
+            with st.sidebar:
+                st.subheader("📚 文档学习")
+                doc_file = st.file_uploader("上传学习文档", type=["docx", "txt", "doc", "pdf"])
+                if doc_file:
+                    with st.spinner("正在学习文档内容..."):
+                        try:
+                            text = ""
+                            if doc_file.name.endswith('.docx'):
+                                doc = Document(doc_file)
+                                text = "\n".join([p.text for p in doc.paragraphs])
+                            elif doc_file.name.endswith('.txt'):
+                                text = doc_file.read().decode('utf-8')
+                            elif doc_file.name.endswith('.doc') or doc_file.name.endswith('.pdf'):
+                                try:
+                                    import textract
+                                    temp_path = f"/tmp/{doc_file.name}"
+                                    with open(temp_path, 'wb') as f:
+                                        f.write(doc_file.read())
+                                    text = textract.process(temp_path).decode('utf-8')
+                                    os.remove(temp_path)
+                                except ImportError:
+                                    st.error("缺少textract依赖，无法解析doc/pdf文件，请转为docx/txt格式后重试")
+                                except Exception as e:
+                                    st.error(f"文件解析失败：{str(e)}")
+                            st.session_state.knowledge_base = text
+                            st.success(f"✅ 文档学习完成！共 {len(text)} 字符")
+                        except Exception as e:
+                            st.error(f"学习失败：{str(e)}")
+            st.subheader("学习历史")
+            if st.session_state.learn_history:
+                df_learn = pd.DataFrame(st.session_state.learn_history)
+                st.dataframe(df_learn, use_container_width=True)
+            else:
+                st.info("暂无学习历史")
+            st.divider()
+            for msg in st.session_state.messages:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
+            if prompt := st.chat_input("输入你的问题..."):
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.write(prompt)
+                with st.chat_message("assistant"):
+                    with st.spinner("思考中..."):
+                        if st.session_state.knowledge_base:
+                            context = st.session_state.knowledge_base[:3000]
+                            response = f"基于你上传的文档，我找到以下相关信息：\n\n文档内容片段：{context[:500]}...\n\n针对你的问题「{prompt}」，我已经学习了你的文档内容。如果配置了豆包API，我可以给出更精准的回答。"
+                        else:
+                            response = "你还没有上传学习文档哦！请先在侧边栏上传文档，我就可以基于文档内容回答你的问题啦。另外，我还会自动学习你的润色习惯，下次帮你把查重率降得更低！"
+                        st.write(response)
+                        st.session_state.messages.append({"role": "assistant", "content": response})
 if __name__ == "__main__":
     main()
