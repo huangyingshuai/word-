@@ -13,7 +13,6 @@ from docx.oxml.ns import qn
 import os
 import requests
 import pandas as pd
-
 # ====================== 预编译正则 ======================
 RE_REF_FLAG = re.compile(r'^\[(\d+)\]')
 RE_REF_KEYWORD = re.compile(r'参考文献|参考资料|References')
