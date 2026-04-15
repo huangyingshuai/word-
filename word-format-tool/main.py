@@ -884,6 +884,52 @@ def import_template(file):
         return None, str(e)
 def main():
     st.set_page_config(page_title="智能论文&竞赛格式处理平台", layout="wide", page_icon="📝")
+    # 自定义CSS：实现左右独立滚动
+    st.markdown("""
+    <style>
+    /* 调整主容器，隐藏全局滚动条 */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 0;
+        overflow: hidden;
+        max-width: 100% !important;
+    }
+    /* 左侧列：独立滚动 */
+    .left-column {
+        height: calc(100vh - 3rem);
+        overflow-y: auto;
+        position: sticky;
+        top: 1rem;
+        padding-right: 15px;
+        border-right: 1px solid #3a3a3a;
+    }
+    /* 右侧列：独立滚动 */
+    .right-column {
+        height: calc(100vh - 3rem);
+        overflow-y: auto;
+        padding-left: 15px;
+    }
+    /* 深色主题适配的滚动条样式 */
+    .left-column::-webkit-scrollbar,
+    .right-column::-webkit-scrollbar {
+        width: 6px;
+    }
+    .left-column::-webkit-scrollbar-track,
+    .right-column::-webkit-scrollbar-track {
+        background: #2d2d2d;
+        border-radius: 3px;
+    }
+    .left-column::-webkit-scrollbar-thumb,
+    .right-column::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 3px;
+    }
+    .left-column::-webkit-scrollbar-thumb:hover,
+    .right-column::-webkit-scrollbar-thumb:hover {
+        background: #888;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     # 兼容新旧版本Streamlit的rerun
     def safe_rerun():
         try:
@@ -911,6 +957,8 @@ def main():
     # 左小右大布局，左边1份，右边3份
     left_col, right_col = st.columns([1, 3])
     with left_col:
+        # 包裹左侧内容，实现独立滚动
+        st.markdown('<div class="left-column">', unsafe_allow_html=True)
         st.subheader("⚙️ 格式调整")
         st.markdown("#### 💾 自定义模板")
         template_name = st.text_input("模板名称", placeholder="自定义格式名称")
@@ -963,7 +1011,11 @@ def main():
                 cfg["bold"] = st.checkbox("西文加粗", cfg["bold"], key=f"en_{level}_bold_{st.session_state.version}")
                 cfg["italic"] = st.checkbox("西文斜体", cfg["italic"], key=f"en_{level}_italic_{st.session_state.version}")
                 st.session_state.en_format[level] = cfg
+        # 关闭左侧滚动容器
+        st.markdown('</div>', unsafe_allow_html=True)
     with right_col:
+        # 包裹右侧内容，实现独立滚动
+        st.markdown('<div class="right-column">', unsafe_allow_html=True)
         st.title(f"📝 智能论文&竞赛格式处理平台")
         st.success("✅ 支持doc/docx/PDF模板提取 | WPS自动生成导航索引 | 知网参考文献标准化 | 智能规避查重")
         st.divider()
@@ -1268,5 +1320,7 @@ def main():
                             response = "你还没有上传学习文档哦！请先在侧边栏上传文档，我就可以基于文档内容回答你的问题啦。另外，我还会自动学习你的润色习惯，下次帮你把查重率降得更低！"
                         st.write(response)
                         st.session_state.messages.append({"role": "assistant", "content": response})
+        # 关闭右侧滚动容器
+        st.markdown('</div>', unsafe_allow_html=True)
 if __name__ == "__main__":
     main()
