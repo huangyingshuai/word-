@@ -3,7 +3,6 @@ import copy
 import re
 import random
 import json
-import textract
 from datetime import datetime
 from io import BytesIO
 from docx import Document
@@ -14,6 +13,7 @@ from docx.oxml.ns import qn
 import os
 import requests
 import pandas as pd
+
 # ====================== 预编译正则 ======================
 RE_REF_FLAG = re.compile(r'^\[(\d+)\]')
 RE_REF_KEYWORD = re.compile(r'参考文献|参考资料|References')
@@ -28,6 +28,7 @@ RE_WHITE_QUOTE = re.compile(r'^\[.*\]$')
 RE_SENTENCE_SPLIT = re.compile(r'(?<=[。！？；])\s*')
 RE_CLAUSE_SPLIT = re.compile(r'[，。；]')
 RE_RED_HIGHLIGHT = re.compile(r'<font color="red">(.*?)</font>', re.DOTALL)
+
 # ====================== 全局配置与常量 ======================
 WHITE_WORDS = [
     "知网", "维普", "万方", "PaperPass", "PaperYY", "PaperFree", "挑战杯", "互联网+", "三创赛",
@@ -40,6 +41,7 @@ WPS_STYLE_MAPPING = {
     "三级标题": WD_BUILTIN_STYLE.HEADING_3,
     "正文": WD_BUILTIN_STYLE.NORMAL
 }
+
 # 竞赛模板
 COMPETITION_FORMATS = {
     "三创赛-全国大学生电子商务创新创意及创业挑战赛": {
@@ -97,6 +99,7 @@ COMPETITION_FORMATS = {
         "special_requirements": ["全文10000字以上", "分创意组/创业组撰写", "需包含完整财务预测", "商业模式需清晰可落地"]
     }
 }
+
 # 高校论文模板
 UNIVERSITY_FORMATS = {
     "清华大学本科毕业论文模板": {
@@ -182,7 +185,7 @@ UNIVERSITY_FORMATS = {
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
-            "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小三", "bold": True, "italic": False},
+            "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "三号", "bold": True, "italic": False},
             "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "四号", "bold": True, "italic": False},
             "正文": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": False, "italic": False},
             "表格": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小五", "bold": False, "italic": False}
@@ -190,6 +193,7 @@ UNIVERSITY_FORMATS = {
         "special_requirements": ["全文12000-20000字", "需包含中英文摘要", "参考文献需符合GB/T 7714-2015", "页眉标注上海交通大学本科毕业论文"]
     }
 }
+
 THESIS_FORMATS = {
     "本科毕业论文-通用模板": {
         "update_time": "2024-04-01",
@@ -228,6 +232,7 @@ THESIS_FORMATS = {
         "special_requirements": ["全文30000字以上", "需包含中英文摘要", "参考文献需符合GB/T 7714-2015", "需包含创新点说明"]
     }
 }
+
 # 专业期刊模板
 JOURNAL_FORMATS = {
     "MTA - Multimedia Tools and Applications": {
@@ -278,7 +283,7 @@ JOURNAL_FORMATS = {
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
             "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
-            "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
+            "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "四号", "bold": True, "italic": False},
             "正文": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": False, "italic": False},
             "表格": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小五", "bold": False, "italic": False}
         },
@@ -296,7 +301,7 @@ JOURNAL_FORMATS = {
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
             "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
-            "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
+            "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "四号", "bold": True, "italic": False},
             "正文": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": False, "italic": False},
             "表格": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小五", "bold": False, "italic": False}
         },
@@ -314,13 +319,14 @@ JOURNAL_FORMATS = {
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
             "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
-            "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
+            "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "四号", "bold": True, "italic": False},
             "正文": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": False, "italic": False},
             "表格": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小五", "bold": False, "italic": False}
         },
         "special_requirements": ["单栏排版", "无首行缩进", "参考文献需符合Springer格式", "图表需单独标注", "全文不超过15页"]
     }
 }
+
 ALL_TEMPLATES = {**COMPETITION_FORMATS, **UNIVERSITY_FORMATS, **THESIS_FORMATS, **JOURNAL_FORMATS}
 REWRITE_LEVEL = {
     "轻度润色": {"synonym": True, "sentence_reorder": False, "structure_change": False},
@@ -349,10 +355,12 @@ EN_FONT_LIST = ["Times New Roman", "Arial", "Calibri", "Courier New"]
 CN_FONT_LIST = ["宋体", "黑体", "楷体", "仿宋_GB2312", "微软雅黑"]
 MAX_FILE_SIZE_MB = 50
 random.seed(42)
+
 # ====================== 核心工具函数 ======================
 @st.cache_data(ttl=3600)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
+
 def get_title_level(para_text):
     text = para_text.strip()
     if not text or len(text) < 2:
@@ -373,27 +381,33 @@ def get_title_level(para_text):
         return "一级标题"
     else:
         return "正文"
+
 def extract_template_from_doc(file):
+    """从文档提取模板，兼容docx/doc/pdf，无textract时降级处理"""
     try:
         if file.name.endswith('.docx'):
             doc = Document(file)
             file.seek(0)
-        elif file.name.endswith('.doc'):
-            temp_path = f"/tmp/{file.name}"
-            with open(temp_path, 'wb') as f:
-                f.write(file.read())
-            text = textract.process(temp_path).decode('utf-8')
-            os.remove(temp_path)
-            return None, text, "仅文本提取"
-        elif file.name.endswith('.pdf'):
-            temp_path = f"/tmp/{file.name}"
-            with open(temp_path, 'wb') as f:
-                f.write(file.read())
-            text = textract.process(temp_path).decode('utf-8')
-            os.remove(temp_path)
+        elif file.name.endswith('.doc') or file.name.endswith('.pdf'):
+            # 可选依赖延迟导入+异常捕获
+            text = ""
+            extract_success = False
+            try:
+                import textract
+                temp_path = f"/tmp/{file.name}"
+                with open(temp_path, 'wb') as f:
+                    f.write(file.read())
+                text = textract.process(temp_path).decode('utf-8')
+                os.remove(temp_path)
+                extract_success = True
+            except ImportError:
+                return None, None, "缺少textract依赖，无法解析doc/pdf文件，请转为docx格式后重试"
+            except Exception as e:
+                return None, None, f"文件解析失败：{str(e)}，请转为docx格式后重试"
             return None, text, "仅文本提取"
         else:
             return None, None, "不支持的文件格式"
+
         cn_format = {}
         en_format = {}
         style_stats = {}
@@ -465,6 +479,7 @@ def extract_template_from_doc(file):
         return template_data, None, None
     except Exception as e:
         return None, None, str(e)
+
 def standardize_cnki_reference(text):
     if not text.strip():
         return text, False
@@ -476,6 +491,7 @@ def standardize_cnki_reference(text):
     if RE_REF_FLAG.match(text) or RE_REF_KEYWORD.search(text):
         return text, True
     return text, False
+
 def parse_plagiarism_report(file):
     try:
         content = file.read().decode('utf-8', errors='ignore')
@@ -484,6 +500,7 @@ def parse_plagiarism_report(file):
         return red_parts, plain_text, None
     except Exception as e:
         return None, None, str(e)
+
 def format_compliance_check(doc, cn_format):
     check_report = []
     title_levels = ["一级标题", "二级标题", "三级标题"]
@@ -513,6 +530,7 @@ def format_compliance_check(doc, cn_format):
     if not check_report:
         check_report.append("✅ 文档格式完全符合要求，无违规项")
     return check_report
+
 def optimize_image_layout(doc):
     image_count = 0
     for para in doc.paragraphs:
@@ -530,6 +548,7 @@ def optimize_image_layout(doc):
             para.paragraph_format.keep_together = True
             para.paragraph_format.first_line_indent = Cm(0)
     return image_count
+
 def is_white_text(text):
     text_strip = text.strip()
     for word in WHITE_WORDS:
@@ -540,6 +559,7 @@ def is_white_text(text):
     if RE_WHITE_QUOTE.match(text_strip):
         return True
     return False
+
 def check_semantic_keep(original, modified):
     original_keywords = set(RE_KEYWORDS.findall(original))
     modified_keywords = set(RE_KEYWORDS.findall(modified))
@@ -549,6 +569,7 @@ def check_semantic_keep(original, modified):
         return 0.0 if modified_keywords else 1.0
     overlap = original_keywords & modified_keywords
     return len(overlap) / len(original_keywords)
+
 def call_doubao_api(text, api_key, prompt):
     try:
         headers = {
@@ -569,6 +590,7 @@ def call_doubao_api(text, api_key, prompt):
             return None, f"API调用失败: {response.text}"
     except Exception as e:
         return None, str(e)
+
 def rewrite_sentence(sentence, level_config, api_key=None, forbidden_text=None):
     original = sentence.strip()
     if len(original) < 5 or is_white_text(original):
@@ -616,6 +638,7 @@ def rewrite_sentence(sentence, level_config, api_key=None, forbidden_text=None):
     if semantic_score < 0.7:
         return original, "原文保留（语义重合度不达标）", 1.0
     return modified, rewrite_type, round(semantic_score, 4)
+
 def rewrite_paragraph(text, level_config, api_key=None, forbidden_text=None):
     change_log = []
     sentences = RE_SENTENCE_SPLIT.split(text)
@@ -634,6 +657,7 @@ def rewrite_paragraph(text, level_config, api_key=None, forbidden_text=None):
                 "semantic_score": semantic_score
             })
     return "".join(new_sentences), change_log
+
 def process_doc(
     file,
     cn_format,
@@ -770,6 +794,7 @@ def process_doc(
     doc.save(output)
     output.seek(0)
     return output, total_changes, title_stats, process_log, check_report
+
 def generate_report(changes, rewrite_level, title_stats, process_log, check_report):
     total_count = len(changes)
     report = f"# 文档处理报告\n"
@@ -794,6 +819,7 @@ def generate_report(changes, rewrite_level, title_stats, process_log, check_repo
             report += f"- **类型**: {change['type']}\n"
             report += f"- **语义保留**: {change['semantic_score']*100:.1f}%\n"
     return report.encode("utf-8")
+
 def export_template(template_data, export_type="json"):
     if export_type == "json":
         return json.dumps(template_data, ensure_ascii=False, indent=2).encode("utf-8")
@@ -813,6 +839,7 @@ def export_template(template_data, export_type="json"):
             for k, v in cfg.items():
                 text += f"{k} = {v}\n"
         return text.encode("utf-8")
+
 def import_template(file):
     try:
         content = file.read().decode('utf-8')
@@ -872,13 +899,17 @@ def import_template(file):
             return data, None
     except Exception as e:
         return None, str(e)
+
 def main():
     st.set_page_config(page_title="智能论文&竞赛格式处理平台", layout="wide", page_icon="📝")
+    # 兼容新旧版本Streamlit的rerun
     def safe_rerun():
         try:
             st.rerun()
         except AttributeError:
             st.experimental_rerun()
+
+    # 初始化session_state
     if "current_template" not in st.session_state:
         st.session_state.current_template = "三创赛-全国大学生电子商务创新创意及创业挑战赛"
         st.session_state.cn_format, st.session_state.en_format = get_cached_template(st.session_state.current_template)
@@ -896,6 +927,7 @@ def main():
         st.session_state.learn_history = []
     if "check_result" not in st.session_state:
         st.session_state.check_result = None
+
     tab1, tab2, tab3, tab4 = st.tabs(["📝 文档处理", "📋 模板管理", "🔍 查重润色", "🤖 AI智能助手"])
     with tab1:
         st.title(f"📝 智能论文&竞赛格式处理器")
@@ -1210,17 +1242,24 @@ def main():
             if doc_file:
                 with st.spinner("正在学习文档内容..."):
                     try:
+                        text = ""
                         if doc_file.name.endswith('.docx'):
                             doc = Document(doc_file)
                             text = "\n".join([p.text for p in doc.paragraphs])
                         elif doc_file.name.endswith('.txt'):
                             text = doc_file.read().decode('utf-8')
                         elif doc_file.name.endswith('.doc') or doc_file.name.endswith('.pdf'):
-                            temp_path = f"/tmp/{doc_file.name}"
-                            with open(temp_path, 'wb') as f:
-                                f.write(doc_file.read())
-                            text = textract.process(temp_path).decode('utf-8')
-                            os.remove(temp_path)
+                            try:
+                                import textract
+                                temp_path = f"/tmp/{doc_file.name}"
+                                with open(temp_path, 'wb') as f:
+                                    f.write(doc_file.read())
+                                text = textract.process(temp_path).decode('utf-8')
+                                os.remove(temp_path)
+                            except ImportError:
+                                st.error("缺少textract依赖，无法解析doc/pdf文件，请转为docx/txt格式后重试")
+                            except Exception as e:
+                                st.error(f"文件解析失败：{str(e)}")
                         st.session_state.knowledge_base = text
                         st.success(f"✅ 文档学习完成！共 {len(text)} 字符")
                     except Exception as e:
