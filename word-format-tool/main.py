@@ -1259,18 +1259,27 @@ def init_session_state() -> None:
     for key, default_value in init_defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default_value
-# ====================== UI层重构（彻底消除多余空白）======================
+# ====================== UI层重构（彻底消除顶部空白）======================
 def init_global_style() -> None:
-    """全局CSS样式，彻底消除多余空白，优化紧凑布局"""
+    """全局CSS样式，彻底消除顶部空白，优化紧凑布局"""
     st.markdown("""
     <style>
+    /* ========== 核心：彻底消除顶部空白 ========== */
+    /* 隐藏Streamlit原生顶部导航栏、菜单、页脚，彻底释放顶部空间 */
+    header {visibility: hidden !important; height: 0 !important; margin: 0 !important; padding: 0 !important;}
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important; height: 0 !important;}
+    .stDeployButton {display: none !important;}
+
     /* 全局适配，消除横向滚动，适配主题 */
     .stApp {
         min-width: 1200px;
         overflow-x: hidden;
         background-color: var(--background-color);
+        padding-top: 0 !important;
+        margin-top: 0 !important;
     }
-    /* 全局消除streamlit默认元素边距，保证顶部对齐，彻底消除空白 */
+    /* 全局消除streamlit默认容器边距，保证顶部完全贴合，彻底消除空白 */
     .block-container {
         padding-top: 0 !important;
         padding-bottom: 0 !important;
@@ -1278,17 +1287,24 @@ def init_global_style() -> None:
         padding-right: 1rem !important;
         max-width: 100% !important;
         margin: 0 !important;
+        margin-top: 0 !important;
+    }
+    /* 消除首个元素的顶部间距，确保第一个组件贴顶 */
+    .element-container:first-child {
+        margin-top: 0 !important;
     }
     .element-container {
         margin: 0.05rem 0 !important;
     }
     .stVerticalBlock {
         gap: 0 !important;
+        padding-top: 0 !important;
     }
     .stHorizontalBlock {
         gap: 0.8rem !important;
         width: 100% !important;
         margin: 0 !important;
+        padding-top: 0 !important;
     }
     /* 左右栏核心布局：顶部完全对齐，消除多余空白 */
     .left-column {
@@ -1297,18 +1313,21 @@ def init_global_style() -> None:
         gap: 0.4rem;
         padding-right: 0.5rem;
         padding-top: 0 !important;
+        margin-top: 0 !important;
         border-right: 1px solid var(--border-color, #374151);
         height: 100%;
         min-height: calc(100vh - 20px);
         width: 100% !important;
     }
-    /* 左栏顶部标题栏：与右栏固定标题栏完全等高、样式同步，消除顶部空白 */
+    /* 左栏顶部标题栏：与右栏固定标题栏完全等高、样式同步，彻底消除顶部空白 */
     .left-header {
         position: sticky;
         top: 0;
         background-color: var(--background-color);
         z-index: 999;
-        padding: 0.5rem 0;
+        padding: 0.5rem 0 !important;
+        margin: 0 !important;
+        margin-top: 0 !important;
         border-bottom: 1px solid var(--border-color, #374151);
         margin-bottom: 0.5rem;
         height: 70px;
@@ -1318,8 +1337,8 @@ def init_global_style() -> None:
     }
     .left-top-block {
         flex: 0 0 auto;
-        margin: 0;
-        padding: 0;
+        margin: 0 !important;
+        padding: 0 !important;
         width: 100%;
     }
     .left-middle-block {
@@ -1328,13 +1347,13 @@ def init_global_style() -> None:
         overflow-x: hidden;
         padding-right: 0.25rem;
         padding-bottom: 0.5rem;
-        margin: 0;
+        margin: 0 !important;
         width: 100%;
     }
     .left-bottom-block {
         flex: 0 0 auto;
         padding-bottom: 0.5rem;
-        margin: 0;
+        margin: 0 !important;
         width: 100%;
     }
     .right-column {
@@ -1343,21 +1362,23 @@ def init_global_style() -> None:
         padding-bottom: 1rem;
         padding-top: 0 !important;
         margin: 0 !important;
+        margin-top: 0 !important;
         min-height: calc(100vh - 20px);
         width: 100% !important;
         display: flex;
         flex-direction: column;
     }
-    /* 右栏固定顶部标题栏：固定高度，与左栏完全同步，消除顶部空白 */
+    /* 右栏固定顶部标题栏：固定高度，与左栏完全同步，彻底消除顶部空白 */
     .fixed-header {
         position: sticky;
         top: 0;
         background-color: var(--background-color);
         z-index: 999;
-        padding: 0.5rem 0;
+        padding: 0.5rem 0 !important;
+        margin: 0 !important;
+        margin-top: 0 !important;
         border-bottom: 1px solid var(--border-color, #374151);
         margin-bottom: 0.5rem;
-        margin-top: 0 !important;
         height: 70px;
         display: flex;
         flex-direction: column;
@@ -1371,6 +1392,8 @@ def init_global_style() -> None:
         display: flex;
         flex-direction: column;
         gap: 0.2rem;
+        padding-top: 0 !important;
+        margin-top: 0 !important;
     }
     /* 模块分割线：大幅减少上下边距，消除空白 */
     .module-divider-green {
@@ -1760,7 +1783,6 @@ def render_right_column(col_right) -> None:
         st.title("📝 智能论文&竞赛格式处理平台")
         st.success("✅ 一键格式标准化 | WPS导航生成 | 知网参考文献优化 | 智能降重润色 | 格式合规检查", icon="✅")
         st.markdown('</div>', unsafe_allow_html=True)
-
         # 右栏核心内容区
         st.markdown('<div class="right-content">', unsafe_allow_html=True)
         
