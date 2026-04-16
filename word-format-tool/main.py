@@ -1032,37 +1032,44 @@ def main():
         overflow-x: hidden;
         background-color: var(--background-color);
     }
-    /* 左侧栏：移除冲突的sticky和固定高度，改为原生流式布局 */
+    /* 核心修复1：左栏与右栏顶部对齐，消除顶部空白 */
     .left-column {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-        padding-right: 1rem;
+        gap: 0.8rem;
+        padding-right: 0.8rem;
+        padding-top: 1rem;
         border-right: 1px solid var(--border-color, #374151);
         min-height: 100vh;
     }
-    /* 左侧栏三个模块的flex分配，移除overflow:hidden */
+    /* 左栏三个模块的flex分配，移除overflow:hidden，消除垂直空白 */
     .left-top-block {
         flex: 0 0 auto;
+        margin: 0;
+        padding: 0;
     }
     .left-middle-block {
         flex: 1 1 auto;
         overflow-y: auto;
         overflow-x: hidden;
         padding-right: 0.25rem;
-        padding-bottom: 2rem;
+        padding-bottom: 1rem;
+        margin: 0;
     }
     .left-bottom-block {
         flex: 0 0 auto;
         padding-bottom: 1rem;
+        margin: 0;
     }
-    /* 右侧栏流式布局 */
+    /* 右侧栏流式布局，与左栏顶部对齐 */
     .right-column {
         overflow-y: auto;
         padding-left: 1rem;
         padding-bottom: 2rem;
+        padding-top: 0;
+        margin: 0;
     }
-    /* 固定顶部标题栏，适配主题色，解决黑块问题 */
+    /* 核心修复2：固定顶部标题栏，统一左右栏顶部间距，解决黑块问题 */
     .fixed-header {
         position: sticky;
         top: 0;
@@ -1071,24 +1078,25 @@ def main():
         padding: 1rem 0;
         border-bottom: 1px solid var(--border-color, #374151);
         margin-bottom: 1rem;
+        margin-top: 0;
     }
-    /* 模块分割线，适配主题 */
+    /* 模块分割线，适配主题，消除多余空白 */
     .module-divider-green {
-        margin: 1rem 0;
+        margin: 0.8rem 0;
         border: none;
         border-top: 3px solid #10b981;
     }
     .module-divider-blue {
-        margin: 1rem 0;
+        margin: 0.8rem 0;
         border: none;
         border-top: 3px solid #3b82f6;
     }
     .module-divider-gray {
-        margin: 1rem 0;
+        margin: 0.8rem 0;
         border: none;
         border-top: 3px solid var(--border-color, #4b5563);
     }
-    /* 组件样式统一，适配主题 */
+    /* 组件样式统一，适配主题，消除默认边距 */
     .stButton>button {
         border-radius: 8px;
         width: 100%;
@@ -1098,6 +1106,7 @@ def main():
         border-radius: 8px;
         border: 1px dashed var(--border-color, #4b5563);
         background-color: var(--secondary-background-color, #1f2937);
+        margin: 0;
     }
     .stSelectbox>div>div {
         border-radius: 8px;
@@ -1108,6 +1117,7 @@ def main():
     .stExpander {
         border-radius: 8px;
         border: 1px solid var(--border-color, #374151);
+        margin: 0.3rem 0;
     }
     /* 进度条样式 */
     .stProgress>div>div {
@@ -1129,12 +1139,20 @@ def main():
     ::-webkit-scrollbar-thumb:hover {
         background: var(--text-color, #6b7280);
     }
+    /* 消除streamlit默认元素的上下空白 */
+    .element-container {
+        margin: 0.2rem 0;
+    }
+    .stMarkdown h3, .stMarkdown h4, .stMarkdown h5 {
+        margin-top: 0.5rem;
+        margin-bottom: 0.3rem;
+    }
     </style>
     """, unsafe_allow_html=True)
     # 初始化状态
     init_session_state()
-    # 全局分栏：左1右4 严格遵循
-    left_col, right_col = st.columns([1, 4])
+    # ========== 核心修复3：分栏比例调整，左栏增加宽度，减少左右空白 ==========
+    left_col, right_col = st.columns([1.2, 3.8])
     # ============== 左栏：纯自定义模板生成工作台（修复布局冲突）==============
     with left_col:
         st.markdown('<div class="left-column">', unsafe_allow_html=True)
@@ -1142,7 +1160,7 @@ def main():
         # 上模块：模板命名与保存区
         st.markdown('<div class="left-top-block">', unsafe_allow_html=True)
         st.markdown("### 📑 自定义模板生成")
-        st.divider()
+        # 核心修复4：移除多余的st.divider()，减少垂直空白
         template_name = st.text_input(
             "自定义模板命名",
             placeholder="请输入模板名称，如：河北科技大学本科毕设专用模板",
@@ -1180,12 +1198,10 @@ def main():
                         safe_rerun()
         st.caption("调整下方格式参数，命名后即可保存为专属自定义模板")
         st.markdown('</div>', unsafe_allow_html=True)
-        st.divider()
         
         # 中模块：全参数格式精细调整区
         st.markdown('<div class="left-middle-block">', unsafe_allow_html=True)
         st.markdown("### 🎨 格式参数全量调整")
-        st.divider()
         format_levels = [
             "一级标题", "二级标题", "三级标题",
             "正文", "表格", "图片与图注", "参考文献"
@@ -1350,12 +1366,10 @@ def main():
                     )
                 st.session_state.custom_en_format[level] = en_cfg
         st.markdown('</div>', unsafe_allow_html=True)
-        st.divider()
         
         # 下模块：模板导出区
         st.markdown('<div class="left-bottom-block">', unsafe_allow_html=True)
         st.markdown("### 📤 模板导出")
-        st.divider()
         export_type = st.radio(
             "导出格式",
             options=["JSON专用格式", "TXT通用格式"],
