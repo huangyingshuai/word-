@@ -202,7 +202,7 @@ UNIVERSITY_FORMATS = {
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
-            "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小三", "bold": True, "italic": False},
+            "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "三号", "bold": True, "italic": False},
             "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "四号", "bold": True, "italic": False},
             "正文": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": False, "italic": False},
             "表格": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "五号", "bold": False, "italic": False},
@@ -1277,6 +1277,7 @@ def init_global_style() -> None:
         padding-left: 1rem !important;
         padding-right: 1rem !important;
         max-width: 100% !important;
+        margin: 0 !important;
     }
     .element-container {
         margin: 0.05rem 0 !important;
@@ -1286,6 +1287,8 @@ def init_global_style() -> None:
     }
     .stHorizontalBlock {
         gap: 0.8rem !important;
+        width: 100% !important;
+        margin: 0 !important;
     }
     /* 左右栏核心布局：顶部完全对齐，消除多余空白 */
     .left-column {
@@ -1295,7 +1298,9 @@ def init_global_style() -> None:
         padding-right: 0.5rem;
         padding-top: 0 !important;
         border-right: 1px solid var(--border-color, #374151);
-        height: auto;
+        height: 100%;
+        min-height: calc(100vh - 20px);
+        width: 100% !important;
     }
     /* 左栏顶部标题栏：与右栏固定标题栏完全等高、样式同步，消除顶部空白 */
     .left-header {
@@ -1309,11 +1314,13 @@ def init_global_style() -> None:
         height: 70px;
         display: flex;
         align-items: center;
+        width: 100%;
     }
     .left-top-block {
         flex: 0 0 auto;
         margin: 0;
         padding: 0;
+        width: 100%;
     }
     .left-middle-block {
         flex: 1 1 auto;
@@ -1322,19 +1329,24 @@ def init_global_style() -> None:
         padding-right: 0.25rem;
         padding-bottom: 0.5rem;
         margin: 0;
+        width: 100%;
     }
     .left-bottom-block {
         flex: 0 0 auto;
         padding-bottom: 0.5rem;
         margin: 0;
+        width: 100%;
     }
     .right-column {
         overflow-y: auto;
         padding-left: 0.8rem;
         padding-bottom: 1rem;
         padding-top: 0 !important;
-        margin: 0;
-        height: 100vh;
+        margin: 0 !important;
+        min-height: calc(100vh - 20px);
+        width: 100% !important;
+        display: flex;
+        flex-direction: column;
     }
     /* 右栏固定顶部标题栏：固定高度，与左栏完全同步，消除顶部空白 */
     .fixed-header {
@@ -1350,22 +1362,34 @@ def init_global_style() -> None:
         display: flex;
         flex-direction: column;
         justify-content: center;
+        width: 100%;
+        flex-shrink: 0;
+    }
+    .right-content {
+        flex: 1 1 auto;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
     }
     /* 模块分割线：大幅减少上下边距，消除空白 */
     .module-divider-green {
         margin: 0.2rem 0 !important;
         border: none;
         border-top: 3px solid #10b981;
+        width: 100%;
     }
     .module-divider-blue {
         margin: 0.2rem 0 !important;
         border: none;
         border-top: 3px solid #3b82f6;
+        width: 100%;
     }
     .module-divider-gray {
         margin: 0.2rem 0 !important;
         border: none;
         border-top: 3px solid var(--border-color, #4b5563);
+        width: 100%;
     }
     /* 组件样式统一，消除多余上下边距 */
     .stButton>button {
@@ -1380,28 +1404,34 @@ def init_global_style() -> None:
         background-color: var(--secondary-background-color, #1f2937);
         margin: 0.1rem 0 !important;
         padding: 0.5rem !important;
+        width: 100% !important;
     }
     .stSelectbox>div>div {
         border-radius: 8px;
         margin: 0.05rem 0 !important;
+        width: 100% !important;
     }
     .stTextInput>div>div {
         border-radius: 8px;
         margin: 0.05rem 0 !important;
+        width: 100% !important;
     }
     .stExpander {
         border-radius: 8px;
         border: 1px solid var(--border-color, #374151);
         margin: 0.1rem 0 !important;
+        width: 100% !important;
     }
     .stExpander>div>div {
         padding: 0.5rem 0.8rem !important;
+        width: 100% !important;
     }
     .stProgress>div>div {
         background-color: #10b981;
     }
     .stProgress {
         margin: 0.1rem 0 !important;
+        width: 100% !important;
     }
     /* 滚动条美化 */
     ::-webkit-scrollbar {
@@ -1424,29 +1454,42 @@ def init_global_style() -> None:
         margin-top: 0 !important;
         margin-bottom: 0.15rem !important;
         line-height: 1.2 !important;
+        width: 100% !important;
     }
     .stMarkdown p {
         margin: 0.05rem 0 !important;
         line-height: 1.3 !important;
+        width: 100% !important;
     }
     .stCaption {
         margin: 0.05rem 0 !important;
         padding: 0 !important;
+        width: 100% !important;
     }
     .stRadio>div {
         margin: 0.1rem 0 !important;
+        width: 100% !important;
     }
     .stCheckbox>div {
         margin: 0.05rem 0 !important;
+        width: 100% !important;
     }
     .stMetric {
         margin: 0.1rem 0 !important;
+        width: 100% !important;
+    }
+    /* 消除列内多余空白 */
+    .stColumn {
+        width: 100% !important;
+        min-width: unset !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
-def render_left_column() -> None:
+def render_left_column(col_left) -> None:
     """渲染左栏：自定义模板生成工作台（紧凑布局，消除空白）"""
-    with st.columns([1.2, 3.8])[0]:
+    with col_left:
         st.markdown('<div class="left-column">', unsafe_allow_html=True)
         
         # 左栏同步标题栏，与右栏齐平
@@ -1707,17 +1750,19 @@ def render_left_column() -> None:
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
-def render_right_column() -> None:
+def render_right_column(col_right) -> None:
     """渲染右栏：主流程操作区（紧凑布局，消除空白）"""
-    with st.columns([1.2, 3.8])[1]:
+    with col_right:
         st.markdown('<div class="right-column">', unsafe_allow_html=True)
         
         # 顶部标题栏：与左栏完全同步
-        with st.container():
-            st.markdown('<div class="fixed-header">', unsafe_allow_html=True)
-            st.title("📝 智能论文&竞赛格式处理平台")
-            st.success("✅ 一键格式标准化 | WPS导航生成 | 知网参考文献优化 | 智能降重润色 | 格式合规检查", icon="✅")
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="fixed-header">', unsafe_allow_html=True)
+        st.title("📝 智能论文&竞赛格式处理平台")
+        st.success("✅ 一键格式标准化 | WPS导航生成 | 知网参考文献优化 | 智能降重润色 | 格式合规检查", icon="✅")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # 右栏核心内容区
+        st.markdown('<div class="right-content">', unsafe_allow_html=True)
         
         # 模块1：文档格式标准化
         st.subheader("📄 第一步：文档格式标准化")
@@ -2115,6 +2160,8 @@ def render_right_column() -> None:
         
         # 安全提示
         st.caption("💡 所有文件仅在浏览器内存中生成，不会上传保存到服务器，关闭页面后自动清除，保障您的文档数据安全")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 # ====================== 主函数入口 ======================
 def main():
@@ -2129,8 +2176,10 @@ def main():
     init_global_style()
     # 初始化Session状态
     init_session_state()
+    # 【核心修复】仅创建一次分栏，彻底解决布局错乱和空白问题
+    col_left, col_right = st.columns([1.2, 3.8], gap="small")
     # 渲染左右栏
-    render_left_column()
-    render_right_column()
+    render_left_column(col_left)
+    render_right_column(col_right)
 if __name__ == "__main__":
     main()
