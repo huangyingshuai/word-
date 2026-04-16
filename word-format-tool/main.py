@@ -1,4 +1,4 @@
-# ====================== 依赖导入 ======================
+# ====================== 依赖导入（移除冗余pandas，优化导入顺序）======================
 import streamlit as st
 import copy
 import re
@@ -8,7 +8,6 @@ import html
 import os
 import tempfile
 import requests
-import pandas as pd
 from datetime import datetime
 from io import BytesIO
 from docx import Document
@@ -38,7 +37,6 @@ RE_RED_HIGHLIGHT = re.compile(r'<font color="red">(.*?)</font>', re.DOTALL)
 RE_SAFE_FILENAME = re.compile(r'^[a-zA-Z0-9_\u4e00-\u9fa5\-.]+$')
 RE_SAFE_TEMPLATE_NAME = re.compile(r'^[a-zA-Z0-9_\u4e00-\u9fa5\s()（）\-]+$')
 RE_HTML_TAG = re.compile(r'<[^>]+>')
-
 # 白名单与映射常量
 WHITE_WORDS = [
     "知网", "维普", "万方", "PaperPass", "PaperYY", "PaperFree", "挑战杯", "互联网+", "三创赛",
@@ -69,7 +67,6 @@ FORMAT_LEVELS = [
     "一级标题", "二级标题", "三级标题",
     "正文", "表格", "图片与图注", "参考文献"
 ]
-
 # 系统配置常量
 MAX_FILE_SIZE_MB = 200
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -79,7 +76,6 @@ SAFE_REPORT_EXTENSIONS = {"html", "txt"}
 DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 API_TIMEOUT = 30
 RANDOM_SEED = 42
-
 # 全量模板库（完整保留原模板，新增格式校验）
 COMPETITION_FORMATS = {
     "三创赛-全国大学生电子商务创新创意及创业挑战赛": {
@@ -420,7 +416,6 @@ JOURNAL_FORMATS = {
     }
 }
 ALL_TEMPLATES = {**COMPETITION_FORMATS, **UNIVERSITY_FORMATS, **THESIS_FORMATS, **JOURNAL_FORMATS}
-
 # 润色等级配置
 REWRITE_LEVEL = {
     "轻度润色": {"synonym": True, "sentence_reorder": False, "structure_change": False, "desc": "仅同义词替换，保留原文句式，语义保留度100%"},
@@ -434,10 +429,8 @@ SYNONYM_DICT = {
     "研究": "调研分析", "实验": "测试验证", "分析": "剖析", "结果": "结论",
     "方法": "方案", "系统": "平台", "模型": "架构", "数据": "信息"
 }
-
 # 随机种子初始化
 random.seed(RANDOM_SEED)
-
 # ====================== 通用工具函数（安全校验+性能优化）======================
 def safe_rerun() -> None:
     """兼容Streamlit新旧版本的rerun函数，避免API变更导致的报错"""
@@ -445,13 +438,11 @@ def safe_rerun() -> None:
         st.rerun()
     except AttributeError:
         st.experimental_rerun()
-
 def sanitize_html(text: str) -> str:
     """HTML转义，防止XSS注入攻击"""
     if not text:
         return ""
     return html.escape(text)
-
 def validate_filename(filename: str) -> Tuple[bool, str]:
     """安全校验文件名，防止路径遍历攻击"""
     if not filename:
@@ -461,7 +452,6 @@ def validate_filename(filename: str) -> Tuple[bool, str]:
     if ".." in filename or "/" in filename or "\\" in filename:
         return False, "文件名包含非法路径字符"
     return True, "校验通过"
-
 def validate_template_name(name: str) -> Tuple[bool, str]:
     """校验模板名称合法性"""
     if not name or not name.strip():
@@ -472,7 +462,6 @@ def validate_template_name(name: str) -> Tuple[bool, str]:
     if not RE_SAFE_TEMPLATE_NAME.match(name):
         return False, "模板名称包含非法字符，仅支持中英文、数字、空格、括号、连字符"
     return True, "校验通过"
-
 def validate_file_extension(filename: str, allowed_extensions: set) -> Tuple[bool, str]:
     """校验文件扩展名合法性"""
     if "." not in filename:
@@ -481,13 +470,11 @@ def validate_file_extension(filename: str, allowed_extensions: set) -> Tuple[boo
     if ext not in allowed_extensions:
         return False, f"不支持的文件格式，仅支持{','.join(allowed_extensions)}格式"
     return True, "校验通过"
-
 def validate_file_size(file_size: int, max_size: int) -> Tuple[bool, str]:
     """校验文件大小"""
     if file_size > max_size:
         return False, f"文件大小超过限制，最大支持{max_size/1024/1024}MB"
     return True, "校验通过"
-
 @lru_cache(maxsize=1024)
 def get_title_level(para_text: str) -> str:
     """
@@ -526,7 +513,6 @@ def get_title_level(para_text: str) -> str:
         return "图片与图注"
     
     return "正文"
-
 def is_white_text(text: str) -> bool:
     """白名单文本判断，避免修改关键内容"""
     text_strip = text.strip()
@@ -538,7 +524,6 @@ def is_white_text(text: str) -> bool:
     if RE_WHITE_QUOTE.match(text_strip):
         return True
     return False
-
 def check_semantic_keep(original: str, modified: str) -> float:
     """语义保留度校验，确保润色不改变原文核心含义"""
     original_keywords = set(RE_KEYWORDS.findall(original))
@@ -549,7 +534,6 @@ def check_semantic_keep(original: str, modified: str) -> float:
         return 0.0 if modified_keywords else 1.0
     overlap = original_keywords & modified_keywords
     return len(overlap) / len(original_keywords)
-
 def simulate_check_rate(text: str) -> float:
     """模拟查重率计算，可替换为真实API"""
     words = RE_KEYWORDS.findall(text)
@@ -558,13 +542,11 @@ def simulate_check_rate(text: str) -> float:
     repeat_count = sum(1 for w in words if w in WHITE_WORDS)
     rate = min(40, max(5, repeat_count / len(words) * 100))
     return round(rate, 1)
-
 # ====================== 核心业务函数（修复安全+功能缺陷）======================
 @st.cache_data(ttl=3600)
 def get_cached_template(template_name: str) -> Tuple[Dict, Dict]:
     """缓存模板获取，减少重复计算"""
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
-
 def call_doubao_api(text: str, api_key: str, prompt: str) -> Tuple[Optional[str], Optional[str]]:
     """
     修复后的豆包API调用函数，解决网页解析失败问题，完善异常处理
@@ -629,7 +611,6 @@ def call_doubao_api(text: str, api_key: str, prompt: str) -> Tuple[Optional[str]
         return None, "无法连接到API服务器，请检查网络连接"
     except Exception as e:
         return None, f"API调用异常：{str(e)}"
-
 def extract_template_from_doc(file) -> Tuple[Optional[Dict], Optional[str], Optional[str]]:
     """
     修复后的模板提取函数，解决路径遍历、临时文件泄露问题
@@ -649,9 +630,10 @@ def extract_template_from_doc(file) -> Tuple[Optional[Dict], Optional[str], Opti
         if file.name.endswith('.docx'):
             doc = Document(file)
             file.seek(0)
-        # 处理doc/pdf文件
+        # 处理doc/pdf文件（可选依赖，延迟导入）
         elif file.name.endswith('.doc') or file.name.endswith('.pdf'):
             try:
+                # 延迟导入textract，避免全局导入报错
                 import textract
                 # 使用系统安全临时文件，自动清理，避免路径遍历
                 with tempfile.NamedTemporaryFile(suffix=f".{file.name.split('.')[-1]}", delete=True) as temp_file:
@@ -753,7 +735,6 @@ def extract_template_from_doc(file) -> Tuple[Optional[Dict], Optional[str], Opti
     
     except Exception as e:
         return None, None, f"模板提取失败：{str(e)}"
-
 def standardize_cnki_reference(text: str) -> Tuple[str, bool]:
     """知网参考文献标准化"""
     if not text.strip():
@@ -766,7 +747,6 @@ def standardize_cnki_reference(text: str) -> Tuple[str, bool]:
     if RE_REF_FLAG.match(text) or RE_REF_KEYWORD.search(text):
         return text, True
     return text, False
-
 def parse_plagiarism_report(file) -> Tuple[Optional[List[str]], Optional[str], Optional[str]]:
     """查重报告解析，提取标红内容"""
     try:
@@ -776,7 +756,6 @@ def parse_plagiarism_report(file) -> Tuple[Optional[List[str]], Optional[str], O
         return red_parts, plain_text, None
     except Exception as e:
         return None, None, f"查重报告解析失败：{str(e)}"
-
 def format_compliance_check(doc: Document, cn_format: Dict) -> List[str]:
     """格式合规性检查"""
     check_report = []
@@ -810,7 +789,6 @@ def format_compliance_check(doc: Document, cn_format: Dict) -> List[str]:
     if not check_report:
         check_report.append("✅ 文档格式完全符合要求，无违规项")
     return check_report
-
 def optimize_image_layout(doc: Document, img_format: Dict) -> int:
     """图片与图注排版优化"""
     image_count = 0
@@ -848,7 +826,6 @@ def optimize_image_layout(doc: Document, img_format: Dict) -> int:
                 if img_format.get("char_spacing", 0) > 0:
                     run.font.spacing = Pt(img_format["char_spacing"])
     return image_count
-
 def rewrite_sentence(
     sentence: str,
     level_config: Dict,
@@ -916,7 +893,6 @@ def rewrite_sentence(
     if semantic_score < 0.7:
         return original, "原文保留（语义重合度不达标）", 1.0
     return modified, rewrite_type, round(semantic_score, 4)
-
 def rewrite_paragraph(
     text: str,
     level_config: Dict,
@@ -942,7 +918,6 @@ def rewrite_paragraph(
                 "semantic_score": semantic_score
             })
     return "".join(new_sentences), change_log
-
 def process_doc(
     file,
     cn_format: Dict,
@@ -1143,7 +1118,6 @@ def process_doc(
     full_text = "\n".join([p.text for p in doc.paragraphs])
     
     return output, total_changes, title_stats, process_log, check_report, full_text
-
 def generate_report(changes: List[Dict], rewrite_level: str, title_stats: Dict, process_log: List[str], check_report: List[str]) -> bytes:
     """生成处理报告"""
     total_count = len(changes)
@@ -1174,7 +1148,6 @@ def generate_report(changes: List[Dict], rewrite_level: str, title_stats: Dict, 
             report += f"- **语义保留**: {change['semantic_score']*100:.1f}%\n"
     
     return report.encode("utf-8")
-
 def export_template(template_data: Dict, export_type: str = "json") -> bytes:
     """模板导出函数"""
     if export_type == "json":
@@ -1198,7 +1171,6 @@ def export_template(template_data: Dict, export_type: str = "json") -> bytes:
                 text += f"{k} = {v}\n"
         
         return text.encode("utf-8")
-
 def import_template(file) -> Tuple[Optional[Dict], Optional[str]]:
     """模板导入函数"""
     try:
@@ -1262,7 +1234,6 @@ def import_template(file) -> Tuple[Optional[Dict], Optional[str]]:
             return data, None
     except Exception as e:
         return None, f"模板导入失败：{str(e)}"
-
 # ====================== Session状态初始化 ======================
 def init_session_state() -> None:
     """初始化Session状态，避免重复初始化"""
@@ -1289,7 +1260,6 @@ def init_session_state() -> None:
     for key, default_value in init_defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default_value
-
 # ====================== UI层重构 ======================
 def init_global_style() -> None:
     """全局CSS样式，修复布局冲突、深色模式适配"""
@@ -1415,7 +1385,6 @@ def init_global_style() -> None:
     }
     </style>
     """, unsafe_allow_html=True)
-
 def render_left_column() -> None:
     """渲染左栏：自定义模板生成工作台"""
     with st.columns([1.2, 3.8])[0]:
@@ -1667,7 +1636,6 @@ def render_left_column() -> None:
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
-
 def render_right_column() -> None:
     """渲染右栏：主流程操作区"""
     with st.columns([1.2, 3.8])[1]:
@@ -2077,7 +2045,6 @@ def render_right_column() -> None:
         # 安全提示
         st.caption("💡 所有文件仅在浏览器内存中生成，不会上传保存到服务器，关闭页面后自动清除，保障您的文档数据安全")
         st.markdown('</div>', unsafe_allow_html=True)
-
 # ====================== 主函数入口 ======================
 def main():
     # 页面配置
@@ -2094,6 +2061,5 @@ def main():
     # 渲染左右栏
     render_left_column()
     render_right_column()
-
 if __name__ == "__main__":
     main()
