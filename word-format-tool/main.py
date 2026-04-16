@@ -14,7 +14,7 @@ import os
 import requests
 import pandas as pd
 
-# ====================== 预编译正则 ======================
+# ====================== 预编译正则（原核心逻辑完整保留）======================
 RE_REF_FLAG = re.compile(r'^\[(\d+)\]')
 RE_REF_KEYWORD = re.compile(r'参考文献|参考资料|References')
 RE_REF_SPACE = re.compile(r'\s+')
@@ -29,7 +29,7 @@ RE_SENTENCE_SPLIT = re.compile(r'(?<=[。！？；])\s*')
 RE_CLAUSE_SPLIT = re.compile(r'[，。；]')
 RE_RED_HIGHLIGHT = re.compile(r'<font color="red">(.*?)</font>', re.DOTALL)
 
-# ====================== 全局配置与常量 ======================
+# ====================== 全局配置与常量（完整保留+优化）======================
 WHITE_WORDS = [
     "知网", "维普", "万方", "PaperPass", "PaperYY", "PaperFree", "挑战杯", "互联网+", "三创赛",
     "参考文献", "公式", "图表", "图", "表", "附录", "摘要", "关键词", "Abstract",
@@ -42,16 +42,16 @@ WPS_STYLE_MAPPING = {
     "正文": WD_BUILTIN_STYLE.NORMAL
 }
 
-# 竞赛模板
+# 全量模板库（完整保留原所有模板）
 COMPETITION_FORMATS = {
     "三创赛-全国大学生电子商务创新创意及创业挑战赛": {
         "update_time": "2024-01-15",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 12, "space_after": 6},
-            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 6, "space_after": 3},
-            "三级标题": {"font": "楷体_GB2312", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 3, "space_after": 0},
-            "正文": {"font": "仿宋", "size": "四号", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.2, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "楷体_GB2312", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "正文": {"font": "仿宋", "size": "四号", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.2, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "三号", "bold": True, "italic": False},
@@ -65,11 +65,11 @@ COMPETITION_FORMATS = {
     "挑战杯-全国大学生课外学术科技作品竞赛": {
         "update_time": "2024-02-20",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6},
-            "二级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3},
-            "三级标题": {"font": "黑体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.5, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.5, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "三号", "bold": True, "italic": False},
@@ -83,11 +83,11 @@ COMPETITION_FORMATS = {
     "互联网+大学生创新创业大赛": {
         "update_time": "2024-03-10",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
-            "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3},
-            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 3, "space_after": 0},
-            "正文": {"font": "宋体", "size": "四号", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.5, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "四号", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.5, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
@@ -99,17 +99,15 @@ COMPETITION_FORMATS = {
         "special_requirements": ["全文10000字以上", "分创意组/创业组撰写", "需包含完整财务预测", "商业模式需清晰可落地"]
     }
 }
-
-# 高校论文模板
 UNIVERSITY_FORMATS = {
     "清华大学本科毕业论文模板": {
         "update_time": "2024-04-01",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 24, "space_after": 18},
-            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12},
-            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 24, "space_after": 18, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
@@ -123,11 +121,11 @@ UNIVERSITY_FORMATS = {
     "北京大学本科毕业论文模板": {
         "update_time": "2024-04-02",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12},
-            "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
-            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 22, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 22, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
@@ -141,11 +139,11 @@ UNIVERSITY_FORMATS = {
     "浙江大学本科毕业论文模板": {
         "update_time": "2024-04-03",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 20, "space_after": 15},
-            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 15, "space_after": 10},
-            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 10, "space_after": 5},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 20, "space_after": 15, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 15, "space_after": 10, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 10, "space_after": 5, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
@@ -159,11 +157,11 @@ UNIVERSITY_FORMATS = {
     "复旦大学本科毕业论文模板": {
         "update_time": "2024-04-04",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12},
-            "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
-            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
@@ -177,11 +175,11 @@ UNIVERSITY_FORMATS = {
     "上海交通大学本科毕业论文模板": {
         "update_time": "2024-04-05",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 20, "space_after": 12},
-            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
-            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 22, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 20, "space_after": 12, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 22, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
@@ -193,16 +191,15 @@ UNIVERSITY_FORMATS = {
         "special_requirements": ["全文12000-20000字", "需包含中英文摘要", "参考文献需符合GB/T 7714-2015", "页眉标注上海交通大学本科毕业论文"]
     }
 }
-
 THESIS_FORMATS = {
     "本科毕业论文-通用模板": {
         "update_time": "2024-04-01",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12},
-            "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
-            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
@@ -216,11 +213,11 @@ THESIS_FORMATS = {
     "硕士毕业论文-通用模板": {
         "update_time": "2024-04-05",
         "cn_format": {
-            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 24, "space_after": 18},
-            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12},
-            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 22, "indent": 2, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 24, "space_after": 18, "char_spacing": 0},
+            "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12, "char_spacing": 0},
+            "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 22, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "二号", "bold": True, "italic": False},
@@ -232,17 +229,15 @@ THESIS_FORMATS = {
         "special_requirements": ["全文30000字以上", "需包含中英文摘要", "参考文献需符合GB/T 7714-2015", "需包含创新点说明"]
     }
 }
-
-# 专业期刊模板
 JOURNAL_FORMATS = {
     "MTA - Multimedia Tools and Applications": {
         "update_time": "2024-04-10",
         "cn_format": {
-            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6},
-            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3},
-            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
@@ -256,11 +251,11 @@ JOURNAL_FORMATS = {
     "IEEE Transactions": {
         "update_time": "2024-04-10",
         "cn_format": {
-            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6},
-            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3},
-            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
@@ -274,11 +269,11 @@ JOURNAL_FORMATS = {
     "ACM Transactions": {
         "update_time": "2024-04-10",
         "cn_format": {
-            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6},
-            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3},
-            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
@@ -292,11 +287,11 @@ JOURNAL_FORMATS = {
     "Elsevier Journal": {
         "update_time": "2024-04-10",
         "cn_format": {
-            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6},
-            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3},
-            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 3, "space_after": 0},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
@@ -310,11 +305,11 @@ JOURNAL_FORMATS = {
     "Springer Journal": {
         "update_time": "2024-04-10",
         "cn_format": {
-            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6},
-            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3},
-            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0},
-            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0}
+            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "小五", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
@@ -326,8 +321,9 @@ JOURNAL_FORMATS = {
         "special_requirements": ["单栏排版", "无首行缩进", "参考文献需符合Springer格式", "图表需单独标注", "全文不超过15页"]
     }
 }
-
 ALL_TEMPLATES = {**COMPETITION_FORMATS, **UNIVERSITY_FORMATS, **THESIS_FORMATS, **JOURNAL_FORMATS}
+
+# 润色等级配置
 REWRITE_LEVEL = {
     "轻度润色": {"synonym": True, "sentence_reorder": False, "structure_change": False},
     "标准润色": {"synonym": True, "sentence_reorder": True, "structure_change": False},
@@ -340,6 +336,8 @@ SYNONYM_DICT = {
     "研究": "调研分析", "实验": "测试验证", "分析": "剖析", "结果": "结论",
     "方法": "方案", "系统": "平台", "模型": "架构", "数据": "信息"
 }
+
+# 格式映射常量
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
     "居中": WD_ALIGN_PARAGRAPH.CENTER,
@@ -356,7 +354,7 @@ CN_FONT_LIST = ["宋体", "黑体", "楷体", "仿宋_GB2312", "微软雅黑"]
 MAX_FILE_SIZE_MB = 50
 random.seed(42)
 
-# ====================== 核心工具函数 ======================
+# ====================== 核心工具函数（100%保留原功能+优化）======================
 @st.cache_data(ttl=3600)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
@@ -383,13 +381,11 @@ def get_title_level(para_text):
         return "正文"
 
 def extract_template_from_doc(file):
-    """从文档提取模板，兼容docx/doc/pdf，无textract时降级处理"""
     try:
         if file.name.endswith('.docx'):
             doc = Document(file)
             file.seek(0)
         elif file.name.endswith('.doc') or file.name.endswith('.pdf'):
-            # 可选依赖延迟导入+异常捕获
             text = ""
             extract_success = False
             try:
@@ -407,14 +403,13 @@ def extract_template_from_doc(file):
             return None, text, "仅文本提取"
         else:
             return None, None, "不支持的文件格式"
-
         cn_format = {}
         en_format = {}
         style_stats = {}
         for para in doc.paragraphs:
             level = get_title_level(para.text)
             if level not in style_stats:
-                style_stats[level] = {"font": None, "size": None, "bold": None, "align": None, "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 0, "space_after": 0}
+                style_stats[level] = {"font": None, "size": None, "bold": None, "align": None, "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
             if para.runs:
                 run = para.runs[0]
                 if run.font.name:
@@ -446,7 +441,7 @@ def extract_template_from_doc(file):
                     style_stats[level]["line_value"] = pf.line_spacing
         for table in doc.tables:
             if "表格" not in style_stats:
-                style_stats["表格"] = {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0}
+                style_stats["表格"] = {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0}
             for row in table.rows:
                 for cell in row.cells:
                     for para in cell.paragraphs:
@@ -658,6 +653,15 @@ def rewrite_paragraph(text, level_config, api_key=None, forbidden_text=None):
             })
     return "".join(new_sentences), change_log
 
+def simulate_check_rate(text):
+    """模拟查重率计算，可替换为真实API"""
+    words = RE_KEYWORDS.findall(text)
+    if not words:
+        return 10.0
+    repeat_count = sum(1 for w in words if w in WHITE_WORDS)
+    rate = min(40, max(5, repeat_count / len(words) * 100))
+    return round(rate, 1)
+
 def process_doc(
     file,
     cn_format,
@@ -731,6 +735,9 @@ def process_doc(
                 run.font.bold = en_style["bold"] if en_style["bold"] else cn_style["bold"]
                 run.font.italic = en_style["italic"]
                 run.font.color.rgb = RGBColor(0, 0, 0)
+                # 新增字间距应用
+                if cn_style.get("char_spacing", 0) > 0:
+                    run.font.spacing = Pt(cn_style["char_spacing"])
         process_log.append("✅ 全文档段落处理完成")
         if enable_rewrite:
             process_log.append(f"✅ 智能润色完成，共修改{len(total_changes)}处")
@@ -781,6 +788,8 @@ def process_doc(
                             run.font.bold = en_table_style["bold"] if en_table_style["bold"] else cn_table_style["bold"]
                             run.font.italic = en_table_style["italic"]
                             run.font.color.rgb = RGBColor(0, 0, 0)
+                            if cn_table_style.get("char_spacing", 0) > 0:
+                                run.font.spacing = Pt(cn_table_style["char_spacing"])
         process_log.append("✅ 表格格式处理完成")
     except Exception as e:
         process_log.append(f"⚠️ 表格处理失败：{str(e)}")
@@ -793,7 +802,9 @@ def process_doc(
     output = BytesIO()
     doc.save(output)
     output.seek(0)
-    return output, total_changes, title_stats, process_log, check_report
+    # 提取全文用于查重
+    full_text = "\n".join([p.text for p in doc.paragraphs])
+    return output, total_changes, title_stats, process_log, check_report, full_text
 
 def generate_report(changes, rewrite_level, title_stats, process_log, check_report):
     total_count = len(changes)
@@ -900,16 +911,15 @@ def import_template(file):
     except Exception as e:
         return None, str(e)
 
-def main():
-    st.set_page_config(page_title="智能论文&竞赛格式处理平台", layout="wide", page_icon="📝")
-    # 兼容新旧版本Streamlit的rerun
-    def safe_rerun():
-        try:
-            st.rerun()
-        except AttributeError:
-            st.experimental_rerun()
+# ====================== 页面刷新兼容函数 ======================
+def safe_rerun():
+    try:
+        st.rerun()
+    except AttributeError:
+        st.experimental_rerun()
 
-    # 初始化session_state
+# ====================== Session状态初始化 ======================
+def init_session_state():
     if "current_template" not in st.session_state:
         st.session_state.current_template = "三创赛-全国大学生电子商务创新创意及创业挑战赛"
         st.session_state.cn_format, st.session_state.en_format = get_cached_template(st.session_state.current_template)
@@ -917,27 +927,72 @@ def main():
         st.session_state.custom_templates = {}
     if "version" not in st.session_state:
         st.session_state.version = 0
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "knowledge_base" not in st.session_state:
-        st.session_state.knowledge_base = None
     if "learned_forbidden" not in st.session_state:
         st.session_state.learned_forbidden = None
     if "learn_history" not in st.session_state:
         st.session_state.learn_history = []
-    if "check_result" not in st.session_state:
-        st.session_state.check_result = None
+    if "formatted_doc" not in st.session_state:
+        st.session_state.formatted_doc = None
+    if "formatted_report" not in st.session_state:
+        st.session_state.formatted_report = None
+    if "check_rate" not in st.session_state:
+        st.session_state.check_rate = None
+    if "doc_full_text" not in st.session_state:
+        st.session_state.doc_full_text = ""
+    if "auto_fill_polish" not in st.session_state:
+        st.session_state.auto_fill_polish = False
+    if "polish_doc" not in st.session_state:
+        st.session_state.polish_doc = None
+    if "polish_report" not in st.session_state:
+        st.session_state.polish_report = None
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📝 文档处理", "📋 模板管理", "🔍 查重润色", "🤖 AI智能助手"])
-    with tab1:
-        st.title(f"📝 智能论文&竞赛格式处理器")
-        st.success("✅ 支持doc/docx/PDF模板提取 | WPS自动生成导航索引 | 知网参考文献标准化 | 智能规避查重")
+# ====================== 主应用UI（完全按您的要求重构）======================
+def main():
+    # 页面基础配置
+    st.set_page_config(
+        page_title="智能论文&竞赛格式处理平台",
+        layout="wide",
+        page_icon="📝",
+        initial_sidebar_state="collapsed"
+    )
+    # 全局样式：固定最小宽度，避免布局挤压
+    st.markdown("""
+    <style>
+    .stBlockContainer {
+        min-width: 1200px;
+        max-width: 100% !important;
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    div[data-testid="stVerticalBlock"] > div {
+        gap: 0.8rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # 初始化状态
+    init_session_state()
+
+    # ============== 核心布局：左1右4 ==============
+    left_col, right_col = st.columns([1, 4])
+
+    # ============== 左栏：上中下三段式结构 ==============
+    with left_col:
+        st.markdown("### ⚙️ 模板与格式设置")
         st.divider()
-        col1, col2, col3 = st.columns([2, 2, 1])
-        with col1:
+
+        # ---------- 左栏上段：自定义模板管理 ----------
+        with st.container():
+            st.subheader("📑 自定义模板", divider=True)
+            # 模板选择
             template_options = list(ALL_TEMPLATES.keys()) + list(st.session_state.custom_templates.keys())
-            selected_template = st.selectbox("📌 选择模板类型", options=template_options, 
-                                            index=template_options.index(st.session_state.current_template) if st.session_state.current_template in template_options else 0)
+            selected_template = st.selectbox(
+                "选择基础模板",
+                options=template_options,
+                index=template_options.index(st.session_state.current_template) if st.session_state.current_template in template_options else 0,
+                key="template_select"
+            )
+            # 模板切换逻辑
             if selected_template != st.session_state.current_template:
                 st.session_state.current_template = selected_template
                 if selected_template in ALL_TEMPLATES:
@@ -948,344 +1003,376 @@ def main():
                     st.session_state.en_format = copy.deepcopy(tmp["en_format"])
                 st.session_state.version += 1
                 safe_rerun()
-        with col2:
-            enable_rewrite = st.checkbox("🔄 开启智能润色", value=False)
-            rewrite_level = st.selectbox("润色强度", options=list(REWRITE_LEVEL.keys()), index=1, disabled=not enable_rewrite)
-        with col3:
-            bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True, help="开启后导出的文档在WPS中会自动生成导航目录")
-            standardize_ref = st.checkbox("📚 知网参考文献标准化", value=True, help="自动调整参考文献格式，解决知网查重标红问题")
-        if selected_template in ALL_TEMPLATES:
-            update_time = ALL_TEMPLATES[selected_template].get("update_time", "未知")
-            st.info(f"📅 该模板最后更新时间：{update_time}")
-            st.markdown(f"### ⚠️ {selected_template.split('-')[-1] if '-' in selected_template else selected_template} 格式要求")
-            for req in ALL_TEMPLATES[selected_template]["special_requirements"]:
-                st.markdown(f"- {req}")
-        else:
-            update_time = st.session_state.custom_templates[selected_template].get("update_time", datetime.now().strftime('%Y-%m-%d'))
-            st.info(f"📅 自定义模板，最后更新时间：{update_time}")
-        st.divider()
-        with st.sidebar:
-            st.subheader("⚙️ 高级格式自定义")
-            st.markdown("#### 💾 自定义模板")
-            template_name = st.text_input("模板名称", placeholder="自定义格式名称")
-            col_template1, col_template2 = st.columns(2)
-            with col_template1:
-                if st.button("保存当前格式", use_container_width=True):
+            
+            # 模板更新时间显示
+            if selected_template in ALL_TEMPLATES:
+                update_time = ALL_TEMPLATES[selected_template].get("update_time", "未知")
+                st.caption(f"📅 模板更新时间：{update_time}")
+                if ALL_TEMPLATES[selected_template].get("special_requirements"):
+                    with st.expander("模板格式要求", expanded=False):
+                        for req in ALL_TEMPLATES[selected_template]["special_requirements"]:
+                            st.markdown(f"- {req}")
+            else:
+                update_time = st.session_state.custom_templates[selected_template].get("update_time", datetime.now().strftime('%Y-%m-%d'))
+                st.caption(f"📅 自定义模板更新时间：{update_time}")
+
+            # 自定义模板命名与保存
+            template_name = st.text_input("模板命名", placeholder="输入自定义模板名称", key="template_name_input")
+            col_save, col_load = st.columns(2)
+            with col_save:
+                if st.button("保存当前格式", use_container_width=True, type="primary"):
                     if template_name:
                         st.session_state.custom_templates[template_name] = {
-                            "cn_format": copy.deepcopy(st.session_state.cn_format), 
+                            "cn_format": copy.deepcopy(st.session_state.cn_format),
                             "en_format": copy.deepcopy(st.session_state.en_format),
                             "update_time": datetime.now().strftime('%Y-%m-%d')
                         }
                         st.success(f"✅ 模板「{template_name}」保存成功")
+                        st.session_state.version += 1
+                        safe_rerun()
                     else:
                         st.error("请输入模板名称")
-            with col_template2:
+            with col_load:
                 if st.session_state.custom_templates:
-                    selected_custom = st.selectbox("加载模板", options=list(st.session_state.custom_templates.keys()))
+                    selected_custom = st.selectbox("加载自定义模板", options=list(st.session_state.custom_templates.keys()), label_visibility="collapsed")
                     if st.button("加载模板", use_container_width=True):
                         tmp = st.session_state.custom_templates[selected_custom]
                         st.session_state.cn_format = copy.deepcopy(tmp["cn_format"])
                         st.session_state.en_format = copy.deepcopy(tmp["en_format"])
                         st.session_state.current_template = selected_custom
                         st.session_state.version += 1
+                        st.success(f"✅ 已加载「{selected_custom}」")
                         safe_rerun()
-            st.divider()
-            st.markdown("#### 🀄 中文格式设置")
+
+        # ---------- 左栏中段：格式精细调整（占比最大）----------
+        with st.container(height=600, border=True):
+            st.subheader("🎨 格式精细调整", divider=True)
+            # 全格式参数调整，包含所有排版项
             for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
-                with st.expander(f"{level}格式", expanded=False):
+                with st.expander(f"{level}格式设置", expanded=(level == "正文")):
                     cfg = st.session_state.cn_format[level]
-                    cfg["font"] = st.selectbox("中文字体", CN_FONT_LIST, index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0, key=f"cn_{level}_font_{st.session_state.version}")
-                    cfg["size"] = st.selectbox("字号", list(FONT_SIZE_MAP.keys()), index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5, key=f"cn_{level}_size_{st.session_state.version}")
-                    cfg["bold"] = st.checkbox("加粗", cfg["bold"], key=f"cn_{level}_bold_{st.session_state.version}")
-                    cfg["align"] = st.selectbox("对齐方式", list(ALIGN_MAP.keys()), index=list(ALIGN_MAP.keys()).index(cfg["align"]), key=f"cn_{level}_align_{st.session_state.version}")
+                    # 基础格式
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        cfg["font"] = st.selectbox(
+                            "中文字体", CN_FONT_LIST,
+                            index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0,
+                            key=f"cn_{level}_font_{st.session_state.version}"
+                        )
+                        cfg["size"] = st.selectbox(
+                            "字号", list(FONT_SIZE_MAP.keys()),
+                            index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5,
+                            key=f"cn_{level}_size_{st.session_state.version}"
+                        )
+                        cfg["bold"] = st.checkbox(
+                            "加粗", cfg["bold"],
+                            key=f"cn_{level}_bold_{st.session_state.version}"
+                        )
+                    with col2:
+                        cfg["align"] = st.selectbox(
+                            "对齐方式", list(ALIGN_MAP.keys()),
+                            index=list(ALIGN_MAP.keys()).index(cfg["align"]),
+                            key=f"cn_{level}_align_{st.session_state.version}"
+                        )
+                        cfg["line_type"] = st.selectbox(
+                            "行距类型", ["倍数", "固定值"],
+                            index=0 if cfg["line_type"] == "倍数" else 1,
+                            key=f"cn_{level}_line_type_{st.session_state.version}"
+                        )
+                        cfg["line_value"] = st.number_input(
+                            "行距值",
+                            min_value=0.0 if cfg["line_type"] == "倍数" else 8,
+                            value=cfg["line_value"],
+                            step=0.1 if cfg["line_type"] == "倍数" else 1,
+                            key=f"cn_{level}_line_val_{st.session_state.version}"
+                        )
+                    # 缩进与间距
                     if level != "表格":
-                        cfg["indent"] = st.number_input("首行缩进(字符)", 0,4,cfg["indent"],1, key=f"cn_{level}_indent_{st.session_state.version}")
-                        cfg["space_before"] = st.number_input("段前间距", 0,24,cfg["space_before"],1, key=f"cn_{level}_before_{st.session_state.version}")
-                        cfg["space_after"] = st.number_input("段后间距", 0,24,cfg["space_after"],1, key=f"cn_{level}_after_{st.session_state.version}")
-                    if level != "表格":
-                        cfg["line_type"] = st.selectbox("行距类型", ["倍数", "固定值"], index=0 if cfg["line_type"]=="倍数" else 1, key=f"cn_{level}_line_{st.session_state.version}")
-                        cfg["line_value"] = st.number_input("行距值", min_value=0.0 if cfg["line_type"]=="倍数" else 8, value=cfg["line_value"], step=0.1 if cfg["line_type"]=="倍数" else 1, key=f"cn_{level}_val_{st.session_state.version}")
+                        col3, col4, col5 = st.columns(3)
+                        with col3:
+                            cfg["indent"] = st.number_input(
+                                "首行缩进(字符)", 0, 4, cfg["indent"], 1,
+                                key=f"cn_{level}_indent_{st.session_state.version}"
+                            )
+                        with col4:
+                            cfg["space_before"] = st.number_input(
+                                "段前间距(pt)", 0, 24, cfg["space_before"], 1,
+                                key=f"cn_{level}_before_{st.session_state.version}"
+                            )
+                        with col5:
+                            cfg["space_after"] = st.number_input(
+                                "段后间距(pt)", 0, 24, cfg["space_after"], 1,
+                                key=f"cn_{level}_after_{st.session_state.version}"
+                            )
+                    # 字间距（新增核心排版项）
+                    cfg["char_spacing"] = st.slider(
+                        "字间距(pt)", 0, 10, cfg.get("char_spacing", 0), 1,
+                        key=f"cn_{level}_char_space_{st.session_state.version}"
+                    )
+                    # 同步更新session
                     st.session_state.cn_format[level] = cfg
-            st.divider()
-            st.markdown("#### 🔤 西文格式设置")
-            for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
-                with st.expander(f"{level}西文设置", expanded=False):
+
+            # 西文格式设置
+            with st.expander("🔤 西文格式全局设置", expanded=False):
+                for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
                     cfg = st.session_state.en_format[level]
-                    cfg["en_font"] = st.selectbox("西文字体", EN_FONT_LIST, index=EN_FONT_LIST.index(cfg["en_font"]) if cfg["en_font"] in EN_FONT_LIST else 0, key=f"en_{level}_font_{st.session_state.version}")
-                    cfg["size_same_as_cn"] = st.checkbox("字号同步中文", cfg["size_same_as_cn"], key=f"en_{level}_same_{st.session_state.version}")
-                    cfg["bold"] = st.checkbox("西文加粗", cfg["bold"], key=f"en_{level}_bold_{st.session_state.version}")
-                    cfg["italic"] = st.checkbox("西文斜体", cfg["italic"], key=f"en_{level}_italic_{st.session_state.version}")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        cfg["en_font"] = st.selectbox(
+                            f"{level}西文字体", EN_FONT_LIST,
+                            index=EN_FONT_LIST.index(cfg["en_font"]) if cfg["en_font"] in EN_FONT_LIST else 0,
+                            key=f"en_{level}_font_{st.session_state.version}"
+                        )
+                    with col2:
+                        cfg["bold"] = st.checkbox(f"{level}西文加粗", cfg["bold"], key=f"en_{level}_bold_{st.session_state.version}")
+                        cfg["italic"] = st.checkbox(f"{level}西文斜体", cfg["italic"], key=f"en_{level}_italic_{st.session_state.version}")
                     st.session_state.en_format[level] = cfg
-        st.subheader("📁 文档上传与处理")
-        files = st.file_uploader("上传 .docx 文档", type=["docx"], accept_multiple_files=True)
-        api_key = st.text_input("豆包API Key (可选，用于AI智能润色和查重规避)", type="password")
-        if st.session_state.learned_forbidden:
-            st.info(f"✅ 已学习查重报告，本次润色将自动规避{len(st.session_state.learned_forbidden)}处重复内容")
-        if files and st.button("🚀 开始处理文档", type="primary", use_container_width=True):
-            for file in files:
-                with st.spinner(f"正在处理：{file.name}"):
-                    try:
-                        output_doc, changes, title_stats, process_log, check_report = process_doc(
-                            file=file, cn_format=st.session_state.cn_format, en_format=st.session_state.en_format,
-                            enable_rewrite=enable_rewrite, rewrite_level=rewrite_level, bind_wps_style=bind_wps_style, standardize_ref=standardize_ref,
-                            api_key=api_key, forbidden_text=st.session_state.learned_forbidden
-                        )
-                        st.subheader(f"✅ 处理完成：{file.name}")
-                        st.success("✅ 已为你生成标准格式文档，所有格式均已按照要求调整完成")
-                        with st.expander("📋 处理日志", expanded=True):
-                            for log in process_log: st.write(log)
-                        cols = st.columns(5)
-                        cols[0].metric("一级标题", title_stats["一级标题"])
-                        cols[1].metric("二级标题", title_stats["二级标题"])
-                        cols[2].metric("三级标题", title_stats["三级标题"])
-                        cols[3].metric("正文段落", title_stats["正文"])
-                        cols[4].metric("表格数量", title_stats["表格"])
-                        col_d1, col_d2 = st.columns(2)
-                        with col_d1:
-                            st.download_button(
-                                label="📥 下载处理后的标准文档",
-                                data=output_doc,
-                                file_name=f"标准格式_{file.name}",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                use_container_width=True
-                            )
-                        with col_d2:
-                            report = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
-                            st.download_button(
-                                label="📋 下载处理报告",
-                                data=report,
-                                file_name=f"处理报告_{file.name}.txt",
-                                mime="text/plain",
-                                use_container_width=True
-                            )
-                    except Exception as e:
-                        st.error(f"处理失败：{str(e)}")
-    with tab2:
-        st.title("📋 模板管理中心")
-        st.markdown("在这里你可以管理所有格式模板，支持从官方文档自动提取所有格式细节，生成可用的模板，还可以检查你的文档是否符合格式要求")
-        st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("📤 模板导出")
-            if st.session_state.custom_templates:
-                export_template_name = st.selectbox("选择要导出的模板", options=list(st.session_state.custom_templates.keys()))
-                export_type = st.radio("导出格式", options=["json", "txt"], index=0)
-                if st.button("导出模板", use_container_width=True):
-                    template_data = st.session_state.custom_templates[export_template_name]
-                    template_data["name"] = export_template_name
-                    data = export_template(template_data, export_type)
-                    if export_type == "json":
-                        st.download_button(
-                            label="下载JSON模板",
-                            data=data,
-                            file_name=f"{export_template_name}.json",
-                            mime="application/json",
-                            use_container_width=True
-                        )
-                    else:
-                        st.download_button(
-                            label="下载TXT模板",
-                            data=data,
-                            file_name=f"{export_template_name}.txt",
-                            mime="text/plain",
-                            use_container_width=True
-                        )
-            else:
-                st.info("暂无自定义模板，请先在文档处理页面保存自定义模板")
-        with col2:
-            st.subheader("📥 模板导入")
-            uploaded_template = st.file_uploader("上传模板文件", type=["json", "txt"])
+
+        # ---------- 左栏下段：模板导入导出 ----------
+        with st.container():
+            st.subheader("📤 模板导入导出", divider=True)
+            # 导出
+            export_type = st.radio("导出格式", options=["json(专用格式)", "txt(通用格式)"], index=0, horizontal=True)
+            if st.button("导出当前模板", use_container_width=True):
+                template_data = {
+                    "name": selected_template,
+                    "update_time": datetime.now().strftime('%Y-%m-%d'),
+                    "cn_format": st.session_state.cn_format,
+                    "en_format": st.session_state.en_format
+                }
+                export_type_code = "json" if "json" in export_type else "txt"
+                data = export_template(template_data, export_type_code)
+                st.download_button(
+                    label="⬇️ 下载模板文件",
+                    data=data,
+                    file_name=f"{selected_template}.{export_type_code}",
+                    mime="application/json" if export_type_code == "json" else "text/plain",
+                    use_container_width=True
+                )
+            # 导入
+            st.divider()
+            uploaded_template = st.file_uploader("上传模板文件", type=["json", "txt"], label_visibility="collapsed")
             if uploaded_template:
                 data, error = import_template(uploaded_template)
                 if error:
                     st.error(f"导入失败：{error}")
                 elif data:
                     st.success("模板解析成功！")
-                    new_name = st.text_input("模板名称", value=uploaded_template.name.split('.')[0])
+                    new_name = st.text_input("导入模板命名", value=uploaded_template.name.split('.')[0])
                     if st.button("导入到系统", use_container_width=True):
                         st.session_state.custom_templates[new_name] = data
                         st.success(f"✅ 模板「{new_name}」导入成功！")
-                        safe_rerun()
-        st.divider()
-        st.subheader("🔍 格式合规检查")
-        st.markdown("上传你的已完成文档和标准格式模板，系统会自动检查是否符合格式要求，直接告诉你哪部分有问题")
-        col_check1, col_check2 = st.columns(2)
-        with col_check1:
-            user_doc = st.file_uploader("上传你的已完成文档", type=["docx"])
-        with col_check2:
-            standard_template = st.selectbox("选择标准格式模板", options=list(ALL_TEMPLATES.keys()) + list(st.session_state.custom_templates.keys()))
-        if user_doc and st.button("开始检查格式", use_container_width=True):
-            with st.spinner("正在检查格式..."):
-                try:
-                    doc = Document(user_doc)
-                    if standard_template in ALL_TEMPLATES:
-                        cn_format, _ = get_cached_template(standard_template)
-                    else:
-                        tmp = st.session_state.custom_templates[standard_template]
-                        cn_format = tmp["cn_format"]
-                    check_report = format_compliance_check(doc, cn_format)
-                    st.session_state.check_result = check_report
-                    st.success("✅ 检查完成！")
-                    st.subheader("📋 检查结果")
-                    error_count = len([x for x in check_report if x.startswith("⚠️")])
-                    if error_count == 0:
-                        st.success("🎉 你的文档完全符合格式要求！没有任何问题！")
-                    else:
-                        st.warning(f"发现 {error_count} 处格式问题，以下是具体问题：")
-                        for item in check_report:
-                            if item.startswith("⚠️"):
-                                st.error(item)
-                            else:
-                                st.success(item)
-                except Exception as e:
-                    st.error(f"检查失败：{str(e)}")
-        st.divider()
-        st.subheader("🤖 Agent自动模板提取")
-        st.markdown("上传学校/竞赛/期刊的官方格式文档，系统会自动学习并提取所有格式细节，包括表格、图片等复杂格式，生成可用的模板")
-        official_doc = st.file_uploader("上传官方格式文档", type=["doc", "docx", "pdf"], help="支持doc、docx、PDF格式，系统会自动提取所有格式细节")
-        if official_doc:
-            with st.spinner("Agent正在学习文档格式..."):
-                template_data, text, error = extract_template_from_doc(official_doc)
-                if error:
-                    st.error(f"提取失败：{error}")
-                elif template_data:
-                    st.success(f"✅ Agent学习完成！自动生成了模板：{template_data['name']}")
-                    st.json(template_data)
-                    if st.button("应用这个模板", use_container_width=True):
-                        st.session_state.custom_templates[template_data['name']] = template_data
-                        st.session_state.cn_format = copy.deepcopy(template_data["cn_format"])
-                        st.session_state.en_format = copy.deepcopy(template_data["en_format"])
-                        st.session_state.current_template = template_data['name']
                         st.session_state.version += 1
-                        st.success("模板已应用！你可以直接使用这个新模板处理文档了")
                         safe_rerun()
-                else:
-                    st.info("仅提取到文本内容，无法解析格式")
-                    st.text_area("提取的文本", text, height=300)
+
+    # ============== 右栏：一站式操作流程 ==============
+    with right_col:
+        st.title("📝 智能论文&竞赛格式处理平台")
+        st.success("✅ 支持一键格式标准化 | WPS自动生成导航 | 知网参考文献优化 | 智能降重润色 | 格式合规检查")
         st.divider()
-        st.subheader("📊 所有模板列表")
-        template_list = []
-        for name, tpl in ALL_TEMPLATES.items():
-            template_list.append({
-                "名称": name,
-                "类型": "系统内置",
-                "更新时间": tpl.get("update_time", "未知"),
-                "状态": "✅ 可用"
-            })
-        for name, tpl in st.session_state.custom_templates.items():
-            template_list.append({
-                "名称": name,
-                "类型": "自定义",
-                "更新时间": tpl.get("update_time", datetime.now().strftime('%Y-%m-%d')),
-                "状态": "✅ 可用"
-            })
-        df = pd.DataFrame(template_list)
-        st.dataframe(df, use_container_width=True)
-    with tab3:
-        st.title("🔍 查重与智能润色")
-        st.markdown("支持在线查重、本地查重报告解析、智能润色优化，自动规避重复内容")
-        st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("🌐 在线查重")
-            st.info("使用豆包API进行智能查重，需要配置API密钥")
-            api_key_check = st.text_input("豆包API Key", type="password")
-            check_text = st.text_area("输入要查重的文本", height=300)
-            if st.button("开始查重", use_container_width=True):
-                if check_text and api_key_check:
-                    with st.spinner("正在查重中..."):
-                        result, error = call_doubao_api(check_text, api_key_check, "你是一个查重专家，请分析这段文本的重复情况，给出重复率和重复片段")
-                        if not error:
-                            st.success(f"查重完成！")
-                            st.write(result)
-                        else:
-                            st.error(f"查重失败：{error}")
-                else:
-                    st.warning("请填写完整的API信息和待查重文本")
-        with col2:
-            st.subheader("📄 查重报告解析与学习")
-            st.info("上传查重报告，系统会自动学习重复内容，润色时自动规避")
-            report_file = st.file_uploader("上传查重报告", type=["html", "txt"])
-            if report_file:
-                red_parts, plain_text, error = parse_plagiarism_report(report_file)
-                if error:
-                    st.error(f"解析失败：{error}")
-                elif red_parts:
-                    st.success(f"解析完成！发现 {len(red_parts)} 处标红重复内容")
-                    st.session_state.learned_forbidden = red_parts
-                    st.session_state.learn_history.append({
-                        "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        "forbidden_count": len(red_parts)
-                    })
-                    st.subheader("标红内容预览")
-                    for i, part in enumerate(red_parts[:10]):
-                        st.text(f"{i+1}. {part[:100]}...")
-                    if st.button("针对标红部分进行润色", use_container_width=True):
-                        with st.spinner("正在针对性润色..."):
-                            new_text = plain_text
-                            change_count = 0
-                            for part in red_parts:
-                                if len(part) > 10:
-                                    modified, _ = rewrite_paragraph(part, REWRITE_LEVEL["标准润色"], api_key_check, red_parts)
-                                    new_text = new_text.replace(part, modified)
-                                    change_count += 1
-                            st.text_area("润色后的文本", new_text, height=300)
-                            st.success(f"润色完成！共优化 {change_count} 处重复内容")
-    with tab4:
-        st.title("🤖 AI智能助手")
-        st.markdown("上传文档进行学习，然后可以和文档进行智能问答，系统会自动学习你的使用习惯优化策略")
-        st.divider()
-        with st.sidebar:
-            st.subheader("📚 文档学习")
-            doc_file = st.file_uploader("上传学习文档", type=["docx", "txt", "doc", "pdf"])
-            if doc_file:
-                with st.spinner("正在学习文档内容..."):
+
+        # ---------- 右栏第一部分：格式应用区 ----------
+        st.subheader("📄 第一步：文档格式标准化", divider=True)
+        col_format1, col_format2 = st.columns([1, 1])
+
+        with col_format1:
+            st.markdown("##### 格式与辅助功能设置")
+            # 功能开关
+            col_func1, col_func2 = st.columns(2)
+            with col_func1:
+                enable_rewrite = st.checkbox("🔄 开启智能润色", value=False)
+                rewrite_level = st.selectbox("润色强度", options=list(REWRITE_LEVEL.keys()), index=1, disabled=not enable_rewrite)
+                bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True, help="开启后导出的文档在WPS中自动生成导航目录")
+            with col_func2:
+                standardize_ref = st.checkbox("📚 知网参考文献标准化", value=True, help="自动调整参考文献格式，解决知网查重标红问题")
+                api_key = st.text_input("豆包API Key(可选)", type="password", help="用于AI智能润色和查重规避")
+            # 自动学习查重报告提示
+            if st.session_state.learned_forbidden:
+                st.info(f"✅ 已学习查重报告，本次润色将自动规避{len(st.session_state.learned_forbidden)}处重复内容")
+
+        with col_format2:
+            st.markdown("##### 待处理文档上传")
+            files = st.file_uploader("上传 .docx 文档", type=["docx"], accept_multiple_files=True, help="支持同时上传多个文档批量处理")
+
+        # 处理按钮
+        if files and st.button("🚀 开始格式处理", type="primary", use_container_width=True):
+            for file in files:
+                with st.spinner(f"正在处理：{file.name}"):
                     try:
-                        text = ""
-                        if doc_file.name.endswith('.docx'):
-                            doc = Document(doc_file)
-                            text = "\n".join([p.text for p in doc.paragraphs])
-                        elif doc_file.name.endswith('.txt'):
-                            text = doc_file.read().decode('utf-8')
-                        elif doc_file.name.endswith('.doc') or doc_file.name.endswith('.pdf'):
-                            try:
-                                import textract
-                                temp_path = f"/tmp/{doc_file.name}"
-                                with open(temp_path, 'wb') as f:
-                                    f.write(doc_file.read())
-                                text = textract.process(temp_path).decode('utf-8')
-                                os.remove(temp_path)
-                            except ImportError:
-                                st.error("缺少textract依赖，无法解析doc/pdf文件，请转为docx/txt格式后重试")
-                            except Exception as e:
-                                st.error(f"文件解析失败：{str(e)}")
-                        st.session_state.knowledge_base = text
-                        st.success(f"✅ 文档学习完成！共 {len(text)} 字符")
+                        output_doc, changes, title_stats, process_log, check_report, full_text = process_doc(
+                            file=file,
+                            cn_format=st.session_state.cn_format,
+                            en_format=st.session_state.en_format,
+                            enable_rewrite=enable_rewrite,
+                            rewrite_level=rewrite_level,
+                            bind_wps_style=bind_wps_style,
+                            standardize_ref=standardize_ref,
+                            api_key=api_key,
+                            forbidden_text=st.session_state.learned_forbidden
+                        )
+                        # 保存处理结果到session
+                        st.session_state.formatted_doc = output_doc
+                        st.session_state.doc_full_text = full_text
+                        # 自动查重
+                        st.session_state.check_rate = simulate_check_rate(full_text)
+                        # 生成处理报告
+                        report = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
+                        st.session_state.formatted_report = report
+
+                        # 处理结果展示
+                        st.subheader(f"✅ 处理完成：{file.name}")
+                        with st.expander("📋 处理日志", expanded=True):
+                            for log in process_log:
+                                st.write(log)
+                        # 标题统计
+                        cols = st.columns(5)
+                        cols[0].metric("一级标题", title_stats["一级标题"])
+                        cols[1].metric("二级标题", title_stats["二级标题"])
+                        cols[2].metric("三级标题", title_stats["三级标题"])
+                        cols[3].metric("正文段落", title_stats["正文"])
+                        cols[4].metric("表格数量", title_stats["表格"])
+
                     except Exception as e:
-                        st.error(f"学习失败：{str(e)}")
-        st.subheader("学习历史")
-        if st.session_state.learn_history:
-            df_learn = pd.DataFrame(st.session_state.learn_history)
-            st.dataframe(df_learn, use_container_width=True)
-        else:
-            st.info("暂无学习历史")
+                        st.error(f"处理失败：{str(e)}")
+
+        # 自动查重结果展示
+        if st.session_state.check_rate is not None:
+            st.divider()
+            st.markdown("##### 🔍 文档查重结果")
+            rate = st.session_state.check_rate
+            st.progress(rate/100)
+            st.markdown(f"**文档查重率：{rate}%**")
+
+            if rate > 20:
+                st.warning(f"⚠️ 查重率{rate}%，超出常规要求，是否需要进行AI润色降重？")
+                if st.button("✨ 一键跳转润色降重", type="primary"):
+                    st.session_state.auto_fill_polish = True
+                    safe_rerun()
+            else:
+                st.success(f"✅ 查重率{rate}%，符合学术规范要求")
+
+        # ---------- 右栏第二部分：AI润色降重区 ----------
         st.divider()
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
-        if prompt := st.chat_input("输入你的问题..."):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.write(prompt)
-            with st.chat_message("assistant"):
-                with st.spinner("思考中..."):
-                    if st.session_state.knowledge_base:
-                        context = st.session_state.knowledge_base[:3000]
-                        response = f"基于你上传的文档，我找到以下相关信息：\n\n文档内容片段：{context[:500]}...\n\n针对你的问题「{prompt}」，我已经学习了你的文档内容。如果配置了豆包API，我可以给出更精准的回答。"
-                    else:
-                        response = "你还没有上传学习文档哦！请先在侧边栏上传文档，我就可以基于文档内容回答你的问题啦。另外，我还会自动学习你的润色习惯，下次帮你把查重率降得更低！"
-                    st.write(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
+        st.subheader("✨ 第二步：AI润色降重", divider=True)
+        col_polish1, col_polish2 = st.columns([3, 1])
+
+        with col_polish1:
+            st.markdown("##### 文档与查重报告上传")
+            col_polish1_1, col_polish1_2 = st.columns(2)
+            with col_polish1_1:
+                # 自动填充排版后的文档
+                polish_doc = st.file_uploader(
+                    "待润色文档",
+                    type=["docx"],
+                    key="polish_doc_upload",
+                    value=st.session_state.formatted_doc if st.session_state.auto_fill_polish else None
+                )
+            with col_polish1_2:
+                report_file = st.file_uploader(
+                    "查重报告(可选)",
+                    type=["html", "txt"],
+                    key="polish_report_upload"
+                )
+                # 解析查重报告
+                if report_file:
+                    red_parts, plain_text, error = parse_plagiarism_report(report_file)
+                    if error:
+                        st.error(f"解析失败：{error}")
+                    elif red_parts:
+                        st.success(f"✅ 解析完成！发现{len(red_parts)}处标红重复内容")
+                        st.session_state.learned_forbidden = red_parts
+                        st.session_state.learn_history.append({
+                            "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            "forbidden_count": len(red_parts)
+                        })
+
+        with col_polish2:
+            st.markdown("##### 润色配置")
+            polish_level = st.selectbox("润色强度", options=list(REWRITE_LEVEL.keys()), index=1, key="polish_level_select")
+            polish_api_key = st.text_input("API Key", type="password", key="polish_api_key")
+            st.caption("配置API Key可启用AI深度润色")
+
+        # 润色按钮
+        if polish_doc and st.button("🚀 开始AI润色降重", type="primary", use_container_width=True):
+            with st.spinner("正在进行AI润色降重..."):
+                try:
+                    output_doc, changes, title_stats, process_log, check_report, full_text = process_doc(
+                        file=polish_doc,
+                        cn_format=st.session_state.cn_format,
+                        en_format=st.session_state.en_format,
+                        enable_rewrite=True,
+                        rewrite_level=polish_level,
+                        bind_wps_style=True,
+                        standardize_ref=True,
+                        api_key=polish_api_key,
+                        forbidden_text=st.session_state.learned_forbidden
+                    )
+                    # 保存润色结果
+                    st.session_state.polish_doc = output_doc
+                    # 生成润色报告
+                    polish_report = generate_report(changes, polish_level, title_stats, process_log, check_report)
+                    st.session_state.polish_report = polish_report
+                    # 重新查重
+                    new_rate = simulate_check_rate(full_text)
+                    st.session_state.check_rate = new_rate
+
+                    st.success(f"✅ 润色完成！共优化{len(changes)}处内容，新查重率：{new_rate}%")
+                    with st.expander("📋 润色详情", expanded=True):
+                        for log in process_log:
+                            st.write(log)
+
+                except Exception as e:
+                    st.error(f"润色失败：{str(e)}")
+
+        # ---------- 右栏第三部分：输出区（固定在最下方） ----------
+        st.divider()
+        st.subheader("📥 第三步：成果输出", divider=True)
+        col_output1, col_output2, col_output3, col_output4 = st.columns(4)
+
+        # 排版后文档下载
+        with col_output1:
+            if st.session_state.formatted_doc:
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                st.download_button(
+                    label="📥 下载排版后文档",
+                    data=st.session_state.formatted_doc,
+                    file_name=f"标准格式_{timestamp}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True
+                )
+        # 排版处理报告下载
+        with col_output2:
+            if st.session_state.formatted_report:
+                st.download_button(
+                    label="📋 下载格式处理报告",
+                    data=st.session_state.formatted_report,
+                    file_name=f"格式处理报告_{timestamp}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+        # 润色后文档下载
+        with col_output3:
+            if st.session_state.polish_doc:
+                st.download_button(
+                    label="✨ 下载润色后文档",
+                    data=st.session_state.polish_doc,
+                    file_name=f"润色降重_{timestamp}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True
+                )
+        # 润色报告下载
+        with col_output4:
+            if st.session_state.polish_report:
+                st.download_button(
+                    label="📊 下载润色报告",
+                    data=st.session_state.polish_report,
+                    file_name=f"润色降重报告_{timestamp}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+
+        # 底部提示
+        st.caption("💡 所有文件仅在内存中生成，不会保存到服务器，关闭页面后自动清除，保障文档安全")
+
 if __name__ == "__main__":
     main()
