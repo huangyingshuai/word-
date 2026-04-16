@@ -160,7 +160,7 @@ UNIVERSITY_FORMATS = {
             "二级标题": {"font": "黑体", "size": "小三", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 15, "space_after": 10, "char_spacing": 0},
             "三级标题": {"font": "黑体", "size": "四号", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 10, "space_after": 5, "char_spacing": 0},
             "正文": {"font": "宋体", "size": "小四", "bold": False, "italic": False, "color": "#000000", "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
             "图片与图注": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 6, "char_spacing": 0},
             "参考文献": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 2, "space_before": 3, "space_after": 3, "char_spacing": 0}
         },
@@ -274,7 +274,7 @@ JOURNAL_FORMATS = {
             "二级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
             "三级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
             "正文": {"font": "宋体", "size": "小四", "bold": False, "italic": False, "color": "#000000", "align": "两端对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
             "图片与图注": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 6, "char_spacing": 0},
             "参考文献": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 3, "char_spacing": 0}
         },
@@ -302,7 +302,7 @@ JOURNAL_FORMATS = {
         },
         "en_format": {
             "一级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
-            "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": True, "italic": False},
+            "二级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "三号", "bold": True, "italic": False},
             "三级标题": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "四号", "bold": True, "italic": False},
             "正文": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "小四", "bold": False, "italic": False},
             "表格": {"en_font": "Times New Roman", "size_same_as_cn": True, "size": "五号", "bold": False, "italic": False},
@@ -314,9 +314,9 @@ JOURNAL_FORMATS = {
     "ACM Transactions": {
         "update_time": "2024-04-10",
         "cn_format": {
-            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
-            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
-            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
+            "一级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
+            "二级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
+            "三级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
             "正文": {"font": "宋体", "size": "小四", "bold": False, "italic": False, "color": "#000000", "align": "两端对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
             "表格": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
             "图片与图注": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 6, "char_spacing": 0},
@@ -340,7 +340,7 @@ JOURNAL_FORMATS = {
             "二级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
             "三级标题": {"font": "宋体", "size": "小四", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 3, "space_after": 0, "char_spacing": 0},
             "正文": {"font": "宋体", "size": "小四", "bold": False, "italic": False, "color": "#000000", "align": "两端对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
             "图片与图注": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 6, "char_spacing": 0},
             "参考文献": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 3, "char_spacing": 0}
         },
@@ -408,7 +408,7 @@ EN_FONT_LIST = ["Times New Roman", "Arial", "Calibri", "Courier New"]
 CN_FONT_LIST = ["宋体", "黑体", "楷体_GB2312", "仿宋_GB2312", "微软雅黑"]
 MAX_FILE_SIZE_MB = 200
 random.seed(42)
-# ====================== 核心工具函数（100%保留原功能+扩展优化）======================
+# ====================== 核心工具函数（100%保留原功能）======================
 @st.cache_data(ttl=3600)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
@@ -1014,7 +1014,7 @@ def init_session_state():
         st.session_state.process_timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     if "selected_template" not in st.session_state:
         st.session_state.selected_template = "本科毕业论文-通用模板"
-# ====================== 主应用UI（严格按需求重构）======================
+# ====================== 主应用UI（核心修复布局与主题适配）======================
 def main():
     # 页面基础配置
     st.set_page_config(
@@ -1023,39 +1023,58 @@ def main():
         page_icon="📝",
         initial_sidebar_state="collapsed"
     )
-    # 全局样式与布局CSS
+    # ========== 核心修复：全局CSS适配深色模式+左侧栏无滚动布局 ==========
     st.markdown("""
     <style>
-    /* 全局适配 */
+    /* 全局适配，消除横向滚动，适配主题 */
     .stApp {
         min-width: 1200px;
         overflow-x: hidden;
+        background-color: var(--background-color);
     }
-    /* 左栏粘性定位 */
+    /* 左侧栏：flex垂直布局，无全局滚动，适配全视口高度 */
     .left-column {
         position: sticky;
         top: 0;
         height: 100vh;
-        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
         padding-right: 1rem;
-        border-right: 1px solid #e5e7eb;
+        border-right: 1px solid var(--border-color, #e5e7eb);
+        overflow: hidden; /* 禁止整个左侧栏滚动 */
     }
-    /* 右栏流式布局 */
+    /* 左侧栏三个模块的flex分配 */
+    .left-top-block {
+        flex: 0 0 auto; /* 高度自适应内容，不伸缩 */
+        overflow: visible;
+    }
+    .left-middle-block {
+        flex: 1 1 auto; /* 占满剩余空间，内容溢出时内部滚动 */
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 0.25rem;
+    }
+    .left-bottom-block {
+        flex: 0 0 auto; /* 高度自适应内容，不伸缩 */
+        overflow: visible;
+    }
+    /* 右侧栏流式布局 */
     .right-column {
         overflow-y: auto;
         padding-left: 1rem;
     }
-    /* 固定顶部标题栏 */
+    /* 固定顶部标题栏，适配主题色，解决黑块问题 */
     .fixed-header {
         position: sticky;
         top: 0;
-        background: #ffffff;
+        background-color: var(--background-color);
         z-index: 999;
         padding: 1rem 0;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
         margin-bottom: 1rem;
     }
-    /* 模块分割线 */
+    /* 模块分割线，适配主题 */
     .module-divider-green {
         margin: 1rem 0;
         border: none;
@@ -1069,9 +1088,9 @@ def main():
     .module-divider-gray {
         margin: 1rem 0;
         border: none;
-        border-top: 3px solid #6b7280;
+        border-top: 3px solid var(--border-color, #6b7280);
     }
-    /* 组件样式统一 */
+    /* 组件样式统一，适配主题 */
     .stButton>button {
         border-radius: 8px;
         width: 100%;
@@ -1079,8 +1098,8 @@ def main():
     }
     .stFileUploader>div {
         border-radius: 8px;
-        border: 1px dashed #4b5563;
-        background-color: #f9fafb;
+        border: 1px dashed var(--border-color, #4b5563);
+        background-color: var(--secondary-background-color, #f9fafb);
     }
     .stSelectbox>div>div {
         border-radius: 8px;
@@ -1090,11 +1109,27 @@ def main():
     }
     .stExpander {
         border-radius: 8px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--border-color, #e5e7eb);
     }
     /* 进度条样式 */
     .stProgress>div>div {
         background-color: #10b981;
+    }
+    /* 滚动条美化，适配深色模式 */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: var(--secondary-background-color, #f1f1f1);
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: var(--border-color, #c1c1c1);
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--text-color, #888);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1102,254 +1137,257 @@ def main():
     init_session_state()
     # 全局分栏：左1右4 严格遵循
     left_col, right_col = st.columns([1, 4])
-    # ============== 左栏：纯自定义模板生成工作台（粘性定位）==============
+    # ============== 左栏：纯自定义模板生成工作台（无全局滚动）==============
     with left_col:
         st.markdown('<div class="left-column">', unsafe_allow_html=True)
-        # 上模块：模板命名与保存区（15%高度）
-        with st.container(height=int(0.15*1080), border=False):
-            st.markdown("### 📑 自定义模板生成")
-            st.divider()
-            template_name = st.text_input(
-                "自定义模板命名",
-                placeholder="请输入模板名称，如：河北科技大学本科毕设专用模板",
-                key="custom_template_name"
-            )
-            col_save, col_del = st.columns(2)
-            with col_save:
-                if st.button("保存当前格式", type="primary", use_container_width=True):
-                    if not template_name.strip():
-                        st.error("请输入模板名称")
-                    else:
-                        st.session_state.custom_templates[template_name] = {
-                            "name": template_name,
-                            "update_time": datetime.now().strftime('%Y-%m-%d'),
-                            "cn_format": copy.deepcopy(st.session_state.custom_cn_format),
-                            "en_format": copy.deepcopy(st.session_state.custom_en_format)
-                        }
-                        st.success(f"✅ 模板「{template_name}」保存成功")
+        
+        # 上模块：模板命名与保存区（flex自适应，无固定高度）
+        st.markdown('<div class="left-top-block">', unsafe_allow_html=True)
+        st.markdown("### 📑 自定义模板生成")
+        st.divider()
+        template_name = st.text_input(
+            "自定义模板命名",
+            placeholder="请输入模板名称，如：河北科技大学本科毕设专用模板",
+            key="custom_template_name"
+        )
+        col_save, col_del = st.columns(2)
+        with col_save:
+            if st.button("保存当前格式", type="primary", use_container_width=True):
+                if not template_name.strip():
+                    st.error("请输入模板名称")
+                else:
+                    st.session_state.custom_templates[template_name] = {
+                        "name": template_name,
+                        "update_time": datetime.now().strftime('%Y-%m-%d'),
+                        "cn_format": copy.deepcopy(st.session_state.custom_cn_format),
+                        "en_format": copy.deepcopy(st.session_state.custom_en_format)
+                    }
+                    st.success(f"✅ 模板「{template_name}」保存成功")
+                    st.session_state.format_version += 1
+                    safe_rerun()
+        with col_del:
+            if st.session_state.custom_templates:
+                del_template = st.selectbox(
+                    "选择模板",
+                    options=list(st.session_state.custom_templates.keys()),
+                    label_visibility="collapsed",
+                    key="del_template_select"
+                )
+                if st.button("删除模板", type="secondary", use_container_width=True):
+                    # 修复：动态key避免重复渲染报错
+                    if st.checkbox("确认删除该模板？", key=f"del_confirm_{st.session_state.format_version}"):
+                        del st.session_state.custom_templates[del_template]
+                        st.success(f"✅ 模板「{del_template}」已删除")
                         st.session_state.format_version += 1
                         safe_rerun()
-            with col_del:
-                if st.session_state.custom_templates:
-                    del_template = st.selectbox(
-                        "选择模板",
-                        options=list(st.session_state.custom_templates.keys()),
-                        label_visibility="collapsed",
-                        key="del_template_select"
-                    )
-                    if st.button("删除模板", type="secondary", use_container_width=True):
-                        # 修复：动态key避免重复渲染报错
-                        if st.checkbox("确认删除该模板？", key=f"del_confirm_{st.session_state.format_version}"):
-                            del st.session_state.custom_templates[del_template]
-                            st.success(f"✅ 模板「{del_template}」已删除")
-                            st.session_state.format_version += 1
-                            safe_rerun()
-            st.caption("调整下方格式参数，命名后即可保存为专属自定义模板")
+        st.caption("调整下方格式参数，命名后即可保存为专属自定义模板")
+        st.markdown('</div>', unsafe_allow_html=True)
+
         st.divider()
-        # 中模块：全参数格式精细调整区（70%高度，核心模块）
-        with st.container(height=int(0.7*1080), border=True):
-            st.markdown("### 🎨 格式参数全量调整")
-            st.divider()
-            format_levels = [
-                "一级标题", "二级标题", "三级标题",
-                "正文", "表格", "图片与图注", "参考文献"
-            ]
-            for level in format_levels:
-                expanded = (level == "正文")
-                with st.expander(f"{level}格式设置", expanded=expanded):
-                    cfg = st.session_state.custom_cn_format[level]
-                    col_base, col_layout = st.columns(2)
-                    # 左列：基础样式组
-                    with col_base:
-                        st.markdown("**基础样式**")
-                        cfg["font"] = st.selectbox(
-                            "中文字体",
-                            CN_FONT_LIST,
-                            index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0,
-                            key=f"cn_{level}_font_{st.session_state.format_version}"
-                        )
-                        cfg["size"] = st.selectbox(
-                            "字号",
-                            list(FONT_SIZE_MAP.keys()),
-                            index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5,
-                            key=f"cn_{level}_size_{st.session_state.format_version}"
-                        )
-                        cfg["bold"] = st.checkbox(
-                            "字体加粗",
-                            cfg["bold"],
-                            key=f"cn_{level}_bold_{st.session_state.format_version}"
-                        )
-                        cfg["italic"] = st.checkbox(
-                            "字体斜体",
-                            cfg["italic"],
-                            key=f"cn_{level}_italic_{st.session_state.format_version}"
-                        )
-                        cfg["color"] = st.color_picker(
-                            "字体颜色",
-                            cfg["color"],
-                            key=f"cn_{level}_color_{st.session_state.format_version}"
-                        )
-                    # 右列：段落布局组
-                    with col_layout:
-                        st.markdown("**段落布局**")
-                        cfg["align"] = st.selectbox(
-                            "对齐方式",
-                            list(ALIGN_MAP.keys()),
-                            index=list(ALIGN_MAP.keys()).index(cfg["align"]),
-                            key=f"cn_{level}_align_{st.session_state.format_version}"
-                        )
-                        # ========== 核心修复：行距类型与数值类型统一 ==========
-                        # 修复1：选项与模板取值严格统一，显示与存储分离
-                        line_type_options = ["倍数", "固定值"]
-                        line_type_labels = ["倍数行距", "固定值行距"]
-                        cfg["line_type"] = st.selectbox(
-                            "行距类型",
-                            options=line_type_options,
-                            format_func=lambda x: line_type_labels[line_type_options.index(x)],
-                            index=0 if cfg["line_type"] == "倍数" else 1,
-                            key=f"cn_{level}_line_type_{st.session_state.format_version}"
-                        )
-                        # 修复2：严格统一数值类型，倍数用float，固定值用int，同时做边界校验
-                        if cfg["line_type"] == "倍数":
-                            line_min = 0.5
-                            line_max = 5.0
-                            line_step = 0.1
-                            default_value = 1.5
-                            # 类型转换+边界校验
-                            try:
-                                current_value = float(cfg["line_value"])
-                                if not (line_min <= current_value <= line_max):
-                                    current_value = default_value
-                            except (ValueError, TypeError):
+        
+        # 中模块：全参数格式精细调整区（占满剩余空间，仅内部滚动）
+        st.markdown('<div class="left-middle-block">', unsafe_allow_html=True)
+        st.markdown("### 🎨 格式参数全量调整")
+        st.divider()
+        format_levels = [
+            "一级标题", "二级标题", "三级标题",
+            "正文", "表格", "图片与图注", "参考文献"
+        ]
+        for level in format_levels:
+            expanded = (level == "正文")
+            with st.expander(f"{level}格式设置", expanded=expanded):
+                cfg = st.session_state.custom_cn_format[level]
+                col_base, col_layout = st.columns(2)
+                # 左列：基础样式组
+                with col_base:
+                    st.markdown("**基础样式**")
+                    cfg["font"] = st.selectbox(
+                        "中文字体",
+                        CN_FONT_LIST,
+                        index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0,
+                        key=f"cn_{level}_font_{st.session_state.format_version}"
+                    )
+                    cfg["size"] = st.selectbox(
+                        "字号",
+                        list(FONT_SIZE_MAP.keys()),
+                        index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5,
+                        key=f"cn_{level}_size_{st.session_state.format_version}"
+                    )
+                    cfg["bold"] = st.checkbox(
+                        "字体加粗",
+                        cfg["bold"],
+                        key=f"cn_{level}_bold_{st.session_state.format_version}"
+                    )
+                    cfg["italic"] = st.checkbox(
+                        "字体斜体",
+                        cfg["italic"],
+                        key=f"cn_{level}_italic_{st.session_state.format_version}"
+                    )
+                    cfg["color"] = st.color_picker(
+                        "字体颜色",
+                        cfg["color"],
+                        key=f"cn_{level}_color_{st.session_state.format_version}"
+                    )
+                # 右列：段落布局组
+                with col_layout:
+                    st.markdown("**段落布局**")
+                    cfg["align"] = st.selectbox(
+                        "对齐方式",
+                        list(ALIGN_MAP.keys()),
+                        index=list(ALIGN_MAP.keys()).index(cfg["align"]),
+                        key=f"cn_{level}_align_{st.session_state.format_version}"
+                    )
+                    # ========== 核心修复：行距类型与数值类型统一 ==========
+                    line_type_options = ["倍数", "固定值"]
+                    line_type_labels = ["倍数行距", "固定值行距"]
+                    cfg["line_type"] = st.selectbox(
+                        "行距类型",
+                        options=line_type_options,
+                        format_func=lambda x: line_type_labels[line_type_options.index(x)],
+                        index=0 if cfg["line_type"] == "倍数" else 1,
+                        key=f"cn_{level}_line_type_{st.session_state.format_version}"
+                    )
+                    # 严格统一数值类型，倍数用float，固定值用int，同时做边界校验
+                    if cfg["line_type"] == "倍数":
+                        line_min = 0.5
+                        line_max = 5.0
+                        line_step = 0.1
+                        default_value = 1.5
+                        try:
+                            current_value = float(cfg["line_value"])
+                            if not (line_min <= current_value <= line_max):
                                 current_value = default_value
-                        else: # 固定值
-                            line_min = 8
-                            line_max = 50
-                            line_step = 1
-                            default_value = 20
-                            # 类型转换+边界校验
-                            try:
-                                current_value = int(cfg["line_value"])
-                                if not (line_min <= current_value <= line_max):
-                                    current_value = default_value
-                            except (ValueError, TypeError):
+                        except (ValueError, TypeError):
+                            current_value = default_value
+                    else:
+                        line_min = 8
+                        line_max = 50
+                        line_step = 1
+                        default_value = 20
+                        try:
+                            current_value = int(cfg["line_value"])
+                            if not (line_min <= current_value <= line_max):
                                 current_value = default_value
-                        # 修复3：传入类型统一的参数，彻底解决混合类型报错
-                        cfg["line_value"] = st.number_input(
-                            "行距数值",
-                            min_value=line_min,
-                            max_value=line_max,
-                            value=current_value,
-                            step=line_step,
-                            key=f"cn_{level}_line_val_{st.session_state.format_version}"
-                        )
-                        # ========== 核心修复结束 ==========
-                        cfg["indent"] = st.number_input(
-                            "首行缩进(字符)",
-                            min_value=0,
-                            max_value=4,
-                            value=cfg["indent"],
-                            step=1,
-                            key=f"cn_{level}_indent_{st.session_state.format_version}"
-                        )
-                        cfg["space_before"] = st.number_input(
-                            "段前间距(pt)",
-                            min_value=0,
-                            max_value=50,
-                            value=cfg["space_before"],
-                            step=1,
-                            key=f"cn_{level}_before_{st.session_state.format_version}"
-                        )
-                        cfg["space_after"] = st.number_input(
-                            "段后间距(pt)",
-                            min_value=0,
-                            max_value=50,
-                            value=cfg["space_after"],
-                            step=1,
-                            key=f"cn_{level}_after_{st.session_state.format_version}"
-                        )
-                    # 通栏：字符间距组
-                    st.markdown("**字符间距**")
-                    cfg["char_spacing"] = st.slider(
-                        "字间距(pt)",
+                        except (ValueError, TypeError):
+                            current_value = default_value
+                    cfg["line_value"] = st.number_input(
+                        "行距数值",
+                        min_value=line_min,
+                        max_value=line_max,
+                        value=current_value,
+                        step=line_step,
+                        key=f"cn_{level}_line_val_{st.session_state.format_version}"
+                    )
+                    cfg["indent"] = st.number_input(
+                        "首行缩进(字符)",
                         min_value=0,
-                        max_value=10,
-                        value=cfg.get("char_spacing", 0),
+                        max_value=4,
+                        value=cfg["indent"],
                         step=1,
-                        key=f"cn_{level}_char_space_{st.session_state.format_version}"
+                        key=f"cn_{level}_indent_{st.session_state.format_version}"
                     )
-                    # 同步更新session
-                    st.session_state.custom_cn_format[level] = cfg
-            # 西文全局格式设置
-            with st.expander("🔤 西文全局格式设置", expanded=False):
-                st.markdown("针对各文档元素单独设置西文格式规则")
-                for level in format_levels:
-                    en_cfg = st.session_state.custom_en_format[level]
-                    st.markdown(f"**{level}西文格式**")
-                    col_en1, col_en2, col_en3 = st.columns(3)
-                    with col_en1:
-                        en_cfg["en_font"] = st.selectbox(
-                            "西文字体",
-                            EN_FONT_LIST,
-                            index=EN_FONT_LIST.index(en_cfg["en_font"]) if en_cfg["en_font"] in EN_FONT_LIST else 0,
-                            key=f"en_{level}_font_{st.session_state.format_version}"
-                        )
-                    with col_en2:
-                        en_cfg["size_same_as_cn"] = st.checkbox(
-                            "西文字号与中文同步",
-                            en_cfg["size_same_as_cn"],
-                            key=f"en_{level}_sync_{st.session_state.format_version}"
-                        )
-                    with col_en3:
-                        en_cfg["bold"] = st.checkbox(
-                            "西文加粗",
-                            en_cfg["bold"],
-                            key=f"en_{level}_bold_{st.session_state.format_version}"
-                        )
-                        en_cfg["italic"] = st.checkbox(
-                            "西文斜体",
-                            en_cfg["italic"],
-                            key=f"en_{level}_italic_{st.session_state.format_version}"
-                        )
-                    if not en_cfg["size_same_as_cn"]:
-                        en_cfg["size"] = st.selectbox(
-                            "西文字号",
-                            list(FONT_SIZE_MAP.keys()),
-                            index=list(FONT_SIZE_MAP.keys()).index(en_cfg["size"]) if en_cfg["size"] in FONT_SIZE_MAP else 5,
-                            key=f"en_{level}_size_{st.session_state.format_version}"
-                        )
-                    st.session_state.custom_en_format[level] = en_cfg
-        st.divider()
-        # 下模块：模板导出区（15%高度）
-        with st.container(height=int(0.15*1080), border=False):
-            st.markdown("### 📤 模板导出")
-            st.divider()
-            export_type = st.radio(
-                "导出格式",
-                options=["JSON专用格式", "TXT通用格式"],
-                index=0,
-                horizontal=True,
-                key="export_type_radio"
-            )
-            st.caption("JSON格式：仅可用于本平台导入，完整保留所有参数；TXT格式：可查看编辑，兼容通用文本查看器")
-            if st.button("导出当前自定义模板", use_container_width=True):
-                template_data = {
-                    "name": template_name if template_name else "自定义模板",
-                    "update_time": datetime.now().strftime('%Y-%m-%d'),
-                    "cn_format": st.session_state.custom_cn_format,
-                    "en_format": st.session_state.custom_en_format
-                }
-                export_type_code = "json" if "JSON" in export_type else "txt"
-                export_data = export_template(template_data, export_type_code)
-                file_name = f"{template_data['name']}_{datetime.now().strftime('%Y%m%d')}.{export_type_code}"
-                st.download_button(
-                    label="⬇️ 下载模板文件",
-                    data=export_data,
-                    file_name=file_name,
-                    mime="application/json" if export_type_code == "json" else "text/plain",
-                    use_container_width=True
+                    cfg["space_before"] = st.number_input(
+                        "段前间距(pt)",
+                        min_value=0,
+                        max_value=50,
+                        value=cfg["space_before"],
+                        step=1,
+                        key=f"cn_{level}_before_{st.session_state.format_version}"
+                    )
+                    cfg["space_after"] = st.number_input(
+                        "段后间距(pt)",
+                        min_value=0,
+                        max_value=50,
+                        value=cfg["space_after"],
+                        step=1,
+                        key=f"cn_{level}_after_{st.session_state.format_version}"
+                    )
+                # 通栏：字符间距组
+                st.markdown("**字符间距**")
+                cfg["char_spacing"] = st.slider(
+                    "字间距(pt)",
+                    min_value=0,
+                    max_value=10,
+                    value=cfg.get("char_spacing", 0),
+                    step=1,
+                    key=f"cn_{level}_char_space_{st.session_state.format_version}"
                 )
-            st.caption("导出的模板文件可在右侧模板导入区上传复用")
+                st.session_state.custom_cn_format[level] = cfg
+        # 西文全局格式设置
+        with st.expander("🔤 西文全局格式设置", expanded=False):
+            st.markdown("针对各文档元素单独设置西文格式规则")
+            for level in format_levels:
+                en_cfg = st.session_state.custom_en_format[level]
+                st.markdown(f"**{level}西文格式**")
+                col_en1, col_en2, col_en3 = st.columns(3)
+                with col_en1:
+                    en_cfg["en_font"] = st.selectbox(
+                        "西文字体",
+                        EN_FONT_LIST,
+                        index=EN_FONT_LIST.index(en_cfg["en_font"]) if en_cfg["en_font"] in EN_FONT_LIST else 0,
+                        key=f"en_{level}_font_{st.session_state.format_version}"
+                    )
+                with col_en2:
+                    en_cfg["size_same_as_cn"] = st.checkbox(
+                        "西文字号与中文同步",
+                        en_cfg["size_same_as_cn"],
+                        key=f"en_{level}_sync_{st.session_state.format_version}"
+                    )
+                with col_en3:
+                    en_cfg["bold"] = st.checkbox(
+                        "西文加粗",
+                        en_cfg["bold"],
+                        key=f"en_{level}_bold_{st.session_state.format_version}"
+                    )
+                    en_cfg["italic"] = st.checkbox(
+                        "西文斜体",
+                        en_cfg["italic"],
+                        key=f"en_{level}_italic_{st.session_state.format_version}"
+                    )
+                if not en_cfg["size_same_as_cn"]:
+                    en_cfg["size"] = st.selectbox(
+                        "西文字号",
+                        list(FONT_SIZE_MAP.keys()),
+                        index=list(FONT_SIZE_MAP.keys()).index(en_cfg["size"]) if en_cfg["size"] in FONT_SIZE_MAP else 5,
+                        key=f"en_{level}_size_{st.session_state.format_version}"
+                    )
+                st.session_state.custom_en_format[level] = en_cfg
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.divider()
+        
+        # 下模块：模板导出区（flex自适应，无固定高度）
+        st.markdown('<div class="left-bottom-block">', unsafe_allow_html=True)
+        st.markdown("### 📤 模板导出")
+        st.divider()
+        export_type = st.radio(
+            "导出格式",
+            options=["JSON专用格式", "TXT通用格式"],
+            index=0,
+            horizontal=True,
+            key="export_type_radio"
+        )
+        st.caption("JSON格式：仅可用于本平台导入，完整保留所有参数；TXT格式：可查看编辑，兼容通用文本查看器")
+        if st.button("导出当前自定义模板", use_container_width=True):
+            template_data = {
+                "name": template_name if template_name else "自定义模板",
+                "update_time": datetime.now().strftime('%Y-%m-%d'),
+                "cn_format": st.session_state.custom_cn_format,
+                "en_format": st.session_state.custom_en_format
+            }
+            export_type_code = "json" if "JSON" in export_type else "txt"
+            export_data = export_template(template_data, export_type_code)
+            file_name = f"{template_data['name']}_{datetime.now().strftime('%Y%m%d')}.{export_type_code}"
+            st.download_button(
+                label="⬇️ 下载模板文件",
+                data=export_data,
+                file_name=file_name,
+                mime="application/json" if export_type_code == "json" else "text/plain",
+                use_container_width=True
+            )
+        st.caption("导出的模板文件可在右侧模板导入区上传复用")
+        st.markdown('</div>', unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)
     # ============== 右栏：全流程操作主链路 ==============
     with right_col:
@@ -1413,7 +1451,6 @@ def main():
                     st.error(f"导入失败：{error}")
                 elif template_data:
                     st.success("✅ 模板解析成功！")
-                    # 修复：动态key避免重复渲染
                     import_template_name = st.text_input(
                         "导入模板命名",
                         value=uploaded_template_file.name.split('.')[0],
