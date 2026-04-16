@@ -116,7 +116,7 @@ UNIVERSITY_FORMATS = {
             "二级标题": {"font": "黑体", "size": "小三", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12, "char_spacing": 0},
             "三级标题": {"font": "黑体", "size": "四号", "bold": True, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "正文": {"font": "宋体", "size": "小四", "bold": False, "italic": False, "color": "#000000", "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2, "space_before": 0, "space_after": 0, "char_spacing": 0},
-            "表格": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
+            "表格": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.25, "indent": 0, "space_before": 0, "space_after": 0, "char_spacing": 0},
             "图片与图注": {"font": "宋体", "size": "小五", "bold": False, "italic": False, "color": "#000000", "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 3, "space_after": 6, "char_spacing": 0},
             "参考文献": {"font": "宋体", "size": "五号", "bold": False, "italic": False, "color": "#000000", "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 2, "space_before": 3, "space_after": 3, "char_spacing": 0}
         },
@@ -1023,7 +1023,7 @@ def main():
         page_icon="📝",
         initial_sidebar_state="collapsed"
     )
-    # ========== 核心修复：全局CSS适配深色模式+左侧栏无滚动布局 ==========
+    # ========== 核心修复：全局CSS适配深色模式+布局冲突修复 ==========
     st.markdown("""
     <style>
     /* 全局适配，消除横向滚动，适配主题 */
@@ -1032,37 +1032,35 @@ def main():
         overflow-x: hidden;
         background-color: var(--background-color);
     }
-    /* 左侧栏：flex垂直布局，无全局滚动，适配全视口高度 */
+    /* 左侧栏：移除冲突的sticky和固定高度，改为原生流式布局 */
     .left-column {
-        position: sticky;
-        top: 0;
-        height: 100vh;
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
         padding-right: 1rem;
-        border-right: 1px solid var(--border-color, #e5e7eb);
-        overflow: hidden; /* 禁止整个左侧栏滚动 */
+        border-right: 1px solid var(--border-color, #374151);
+        min-height: 100vh;
     }
-    /* 左侧栏三个模块的flex分配 */
+    /* 左侧栏三个模块的flex分配，移除overflow:hidden */
     .left-top-block {
-        flex: 0 0 auto; /* 高度自适应内容，不伸缩 */
-        overflow: visible;
+        flex: 0 0 auto;
     }
     .left-middle-block {
-        flex: 1 1 auto; /* 占满剩余空间，内容溢出时内部滚动 */
+        flex: 1 1 auto;
         overflow-y: auto;
         overflow-x: hidden;
         padding-right: 0.25rem;
+        padding-bottom: 2rem;
     }
     .left-bottom-block {
-        flex: 0 0 auto; /* 高度自适应内容，不伸缩 */
-        overflow: visible;
+        flex: 0 0 auto;
+        padding-bottom: 1rem;
     }
     /* 右侧栏流式布局 */
     .right-column {
         overflow-y: auto;
         padding-left: 1rem;
+        padding-bottom: 2rem;
     }
     /* 固定顶部标题栏，适配主题色，解决黑块问题 */
     .fixed-header {
@@ -1071,7 +1069,7 @@ def main():
         background-color: var(--background-color);
         z-index: 999;
         padding: 1rem 0;
-        border-bottom: 1px solid var(--border-color, #e5e7eb);
+        border-bottom: 1px solid var(--border-color, #374151);
         margin-bottom: 1rem;
     }
     /* 模块分割线，适配主题 */
@@ -1088,7 +1086,7 @@ def main():
     .module-divider-gray {
         margin: 1rem 0;
         border: none;
-        border-top: 3px solid var(--border-color, #6b7280);
+        border-top: 3px solid var(--border-color, #4b5563);
     }
     /* 组件样式统一，适配主题 */
     .stButton>button {
@@ -1099,7 +1097,7 @@ def main():
     .stFileUploader>div {
         border-radius: 8px;
         border: 1px dashed var(--border-color, #4b5563);
-        background-color: var(--secondary-background-color, #f9fafb);
+        background-color: var(--secondary-background-color, #1f2937);
     }
     .stSelectbox>div>div {
         border-radius: 8px;
@@ -1109,7 +1107,7 @@ def main():
     }
     .stExpander {
         border-radius: 8px;
-        border: 1px solid var(--border-color, #e5e7eb);
+        border: 1px solid var(--border-color, #374151);
     }
     /* 进度条样式 */
     .stProgress>div>div {
@@ -1121,15 +1119,15 @@ def main():
         height: 6px;
     }
     ::-webkit-scrollbar-track {
-        background: var(--secondary-background-color, #f1f1f1);
+        background: var(--secondary-background-color, #1f2937);
         border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb {
-        background: var(--border-color, #c1c1c1);
+        background: var(--border-color, #4b5563);
         border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: var(--text-color, #888);
+        background: var(--text-color, #6b7280);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1137,11 +1135,11 @@ def main():
     init_session_state()
     # 全局分栏：左1右4 严格遵循
     left_col, right_col = st.columns([1, 4])
-    # ============== 左栏：纯自定义模板生成工作台（无全局滚动）==============
+    # ============== 左栏：纯自定义模板生成工作台（修复布局冲突）==============
     with left_col:
         st.markdown('<div class="left-column">', unsafe_allow_html=True)
         
-        # 上模块：模板命名与保存区（flex自适应，无固定高度）
+        # 上模块：模板命名与保存区
         st.markdown('<div class="left-top-block">', unsafe_allow_html=True)
         st.markdown("### 📑 自定义模板生成")
         st.divider()
@@ -1182,10 +1180,9 @@ def main():
                         safe_rerun()
         st.caption("调整下方格式参数，命名后即可保存为专属自定义模板")
         st.markdown('</div>', unsafe_allow_html=True)
-
         st.divider()
         
-        # 中模块：全参数格式精细调整区（占满剩余空间，仅内部滚动）
+        # 中模块：全参数格式精细调整区
         st.markdown('<div class="left-middle-block">', unsafe_allow_html=True)
         st.markdown("### 🎨 格式参数全量调整")
         st.divider()
@@ -1237,7 +1234,7 @@ def main():
                         index=list(ALIGN_MAP.keys()).index(cfg["align"]),
                         key=f"cn_{level}_align_{st.session_state.format_version}"
                     )
-                    # ========== 核心修复：行距类型与数值类型统一 ==========
+                    # 行距类型与数值类型统一
                     line_type_options = ["倍数", "固定值"]
                     line_type_labels = ["倍数行距", "固定值行距"]
                     cfg["line_type"] = st.selectbox(
@@ -1353,10 +1350,9 @@ def main():
                     )
                 st.session_state.custom_en_format[level] = en_cfg
         st.markdown('</div>', unsafe_allow_html=True)
-
         st.divider()
         
-        # 下模块：模板导出区（flex自适应，无固定高度）
+        # 下模块：模板导出区
         st.markdown('<div class="left-bottom-block">', unsafe_allow_html=True)
         st.markdown("### 📤 模板导出")
         st.divider()
@@ -1387,7 +1383,6 @@ def main():
             )
         st.caption("导出的模板文件可在右侧模板导入区上传复用")
         st.markdown('</div>', unsafe_allow_html=True)
-
         st.markdown('</div>', unsafe_allow_html=True)
     # ============== 右栏：全流程操作主链路 ==============
     with right_col:
