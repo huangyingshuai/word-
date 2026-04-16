@@ -1259,9 +1259,9 @@ def init_session_state() -> None:
     for key, default_value in init_defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default_value
-# ====================== UI层重构（核心对齐修改）======================
+# ====================== UI层重构（彻底消除多余空白）======================
 def init_global_style() -> None:
-    """全局CSS样式，修复左右栏顶部对齐问题"""
+    """全局CSS样式，彻底消除多余空白，优化紧凑布局"""
     st.markdown("""
     <style>
     /* 全局适配，消除横向滚动，适配主题 */
@@ -1270,39 +1270,43 @@ def init_global_style() -> None:
         overflow-x: hidden;
         background-color: var(--background-color);
     }
-    /* 全局消除streamlit默认元素边距，保证顶部对齐 */
+    /* 全局消除streamlit默认元素边距，保证顶部对齐，彻底消除空白 */
     .block-container {
         padding-top: 0 !important;
         padding-bottom: 0 !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
         max-width: 100% !important;
     }
     .element-container {
-        margin: 0.2rem 0;
+        margin: 0.05rem 0 !important;
     }
     .stVerticalBlock {
         gap: 0 !important;
     }
-    /* 左右栏核心布局：顶部完全对齐 */
+    .stHorizontalBlock {
+        gap: 0.8rem !important;
+    }
+    /* 左右栏核心布局：顶部完全对齐，消除多余空白 */
     .left-column {
         display: flex;
         flex-direction: column;
-        gap: 0.8rem;
-        padding-right: 0.8rem;
-        padding-top: 0 !important; /* 移除原有的顶部内边距，实现顶部齐平 */
+        gap: 0.4rem;
+        padding-right: 0.5rem;
+        padding-top: 0 !important;
         border-right: 1px solid var(--border-color, #374151);
-        min-height: 100vh;
-        height: 100%;
+        height: auto;
     }
-    /* 左栏顶部标题栏：与右栏固定标题栏完全等高、样式同步 */
+    /* 左栏顶部标题栏：与右栏固定标题栏完全等高、样式同步，消除顶部空白 */
     .left-header {
         position: sticky;
         top: 0;
         background-color: var(--background-color);
         z-index: 999;
-        padding: 1rem 0;
+        padding: 0.5rem 0;
         border-bottom: 1px solid var(--border-color, #374151);
-        margin-bottom: 1rem;
-        height: 108px; /* 与右栏标题栏固定高度完全一致 */
+        margin-bottom: 0.5rem;
+        height: 70px;
         display: flex;
         align-items: center;
     }
@@ -1316,78 +1320,88 @@ def init_global_style() -> None:
         overflow-y: auto;
         overflow-x: hidden;
         padding-right: 0.25rem;
-        padding-bottom: 1rem;
+        padding-bottom: 0.5rem;
         margin: 0;
     }
     .left-bottom-block {
         flex: 0 0 auto;
-        padding-bottom: 1rem;
+        padding-bottom: 0.5rem;
         margin: 0;
     }
     .right-column {
         overflow-y: auto;
-        padding-left: 1rem;
-        padding-bottom: 2rem;
-        padding-top: 0 !important; /* 移除原有的顶部内边距 */
+        padding-left: 0.8rem;
+        padding-bottom: 1rem;
+        padding-top: 0 !important;
         margin: 0;
         height: 100vh;
     }
-    /* 右栏固定顶部标题栏：固定高度，与左栏完全同步 */
+    /* 右栏固定顶部标题栏：固定高度，与左栏完全同步，消除顶部空白 */
     .fixed-header {
         position: sticky;
         top: 0;
         background-color: var(--background-color);
         z-index: 999;
-        padding: 1rem 0;
+        padding: 0.5rem 0;
         border-bottom: 1px solid var(--border-color, #374151);
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
         margin-top: 0 !important;
-        height: 108px; /* 固定高度，与左栏标题栏完全一致 */
+        height: 70px;
         display: flex;
         flex-direction: column;
         justify-content: center;
     }
-    /* 模块分割线 */
+    /* 模块分割线：大幅减少上下边距，消除空白 */
     .module-divider-green {
-        margin: 0.8rem 0;
+        margin: 0.2rem 0 !important;
         border: none;
         border-top: 3px solid #10b981;
     }
     .module-divider-blue {
-        margin: 0.8rem 0;
+        margin: 0.2rem 0 !important;
         border: none;
         border-top: 3px solid #3b82f6;
     }
     .module-divider-gray {
-        margin: 0.8rem 0;
+        margin: 0.2rem 0 !important;
         border: none;
         border-top: 3px solid var(--border-color, #4b5563);
     }
-    /* 组件样式统一 */
+    /* 组件样式统一，消除多余上下边距 */
     .stButton>button {
         border-radius: 8px;
         width: 100%;
         font-weight: 500;
+        margin: 0.1rem 0 !important;
     }
     .stFileUploader>div {
         border-radius: 8px;
         border: 1px dashed var(--border-color, #4b5563);
         background-color: var(--secondary-background-color, #1f2937);
-        margin: 0;
+        margin: 0.1rem 0 !important;
+        padding: 0.5rem !important;
     }
     .stSelectbox>div>div {
         border-radius: 8px;
+        margin: 0.05rem 0 !important;
     }
     .stTextInput>div>div {
         border-radius: 8px;
+        margin: 0.05rem 0 !important;
     }
     .stExpander {
         border-radius: 8px;
         border: 1px solid var(--border-color, #374151);
-        margin: 0.3rem 0;
+        margin: 0.1rem 0 !important;
+    }
+    .stExpander>div>div {
+        padding: 0.5rem 0.8rem !important;
     }
     .stProgress>div>div {
         background-color: #10b981;
+    }
+    .stProgress {
+        margin: 0.1rem 0 !important;
     }
     /* 滚动条美化 */
     ::-webkit-scrollbar {
@@ -1405,23 +1419,37 @@ def init_global_style() -> None:
     ::-webkit-scrollbar-thumb:hover {
         background: var(--text-color, #6b7280);
     }
-    /* 标题边距统一，保证视觉对齐 */
-    .stMarkdown h3, .stMarkdown h4, .stMarkdown h5 {
+    /* 标题边距统一，彻底消除多余空白 */
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5 {
         margin-top: 0 !important;
-        margin-bottom: 0.3rem;
+        margin-bottom: 0.15rem !important;
+        line-height: 1.2 !important;
     }
-    .stMarkdown h1 {
-        margin-top: 0 !important;
-        margin-bottom: 0.5rem;
+    .stMarkdown p {
+        margin: 0.05rem 0 !important;
+        line-height: 1.3 !important;
+    }
+    .stCaption {
+        margin: 0.05rem 0 !important;
+        padding: 0 !important;
+    }
+    .stRadio>div {
+        margin: 0.1rem 0 !important;
+    }
+    .stCheckbox>div {
+        margin: 0.05rem 0 !important;
+    }
+    .stMetric {
+        margin: 0.1rem 0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 def render_left_column() -> None:
-    """渲染左栏：自定义模板生成工作台（新增顶部同步标题栏，实现与右栏齐平）"""
+    """渲染左栏：自定义模板生成工作台（紧凑布局，消除空白）"""
     with st.columns([1.2, 3.8])[0]:
         st.markdown('<div class="left-column">', unsafe_allow_html=True)
         
-        # 【核心修改】左栏新增与右栏等高的同步标题栏，实现标题完全齐平
+        # 左栏同步标题栏，与右栏齐平
         st.markdown('<div class="left-header">', unsafe_allow_html=True)
         st.markdown("### 📑 自定义模板生成")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -1430,10 +1458,11 @@ def render_left_column() -> None:
         st.markdown('<div class="left-top-block">', unsafe_allow_html=True)
         template_name = st.text_input(
             "自定义模板命名",
-            placeholder="请输入模板名称，如：河北科技大学本科毕设专用模板",
-            key="custom_template_name"
+            placeholder="请输入模板名称",
+            key="custom_template_name",
+            label_visibility="collapsed"
         )
-        col_save, col_del = st.columns(2)
+        col_save, col_del = st.columns(2, gap="small")
         
         with col_save:
             if st.button("保存当前格式", type="primary", use_container_width=True):
@@ -1448,7 +1477,7 @@ def render_left_column() -> None:
                         "cn_format": copy.deepcopy(st.session_state.custom_cn_format),
                         "en_format": copy.deepcopy(st.session_state.custom_en_format)
                     }
-                    st.success(f"✅ 模板「{safe_name}」保存成功")
+                    st.success(f"✅ 模板「{safe_name}」保存成功", icon="✅")
                     st.session_state.format_version += 1
                     safe_rerun()
         
@@ -1461,24 +1490,24 @@ def render_left_column() -> None:
                     key="del_template_select"
                 )
                 if st.button("删除模板", type="secondary", use_container_width=True):
-                    if st.checkbox("确认删除该模板？", key=f"del_confirm_{st.session_state.format_version}"):
+                    if st.checkbox("确认删除？", key=f"del_confirm_{st.session_state.format_version}", label_visibility="collapsed"):
                         del st.session_state.custom_templates[del_template]
-                        st.success(f"✅ 模板「{del_template}」已删除")
+                        st.success(f"✅ 模板「{del_template}」已删除", icon="✅")
                         st.session_state.format_version += 1
                         safe_rerun()
         
-        st.caption("调整下方格式参数，命名后即可保存为专属自定义模板")
+        st.caption("调整下方参数，命名后保存为专属模板")
         st.markdown('</div>', unsafe_allow_html=True)
         
         # 中模块：格式参数调整
         st.markdown('<div class="left-middle-block">', unsafe_allow_html=True)
-        st.markdown("### 🎨 格式参数全量调整")
+        st.markdown("#### 🎨 格式参数调整")
         
         for level in FORMAT_LEVELS:
             expanded = (level == "正文")
             with st.expander(f"{level}格式设置", expanded=expanded):
                 cfg = st.session_state.custom_cn_format[level]
-                col_base, col_layout = st.columns(2)
+                col_base, col_layout = st.columns(2, gap="small")
                 
                 with col_base:
                     st.markdown("**基础样式**")
@@ -1494,16 +1523,19 @@ def render_left_column() -> None:
                         index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5,
                         key=f"cn_{level}_size_{st.session_state.format_version}"
                     )
-                    cfg["bold"] = st.checkbox(
-                        "字体加粗",
-                        cfg["bold"],
-                        key=f"cn_{level}_bold_{st.session_state.format_version}"
-                    )
-                    cfg["italic"] = st.checkbox(
-                        "字体斜体",
-                        cfg["italic"],
-                        key=f"cn_{level}_italic_{st.session_state.format_version}"
-                    )
+                    col_bold, col_italic = st.columns(2, gap="small")
+                    with col_bold:
+                        cfg["bold"] = st.checkbox(
+                            "字体加粗",
+                            cfg["bold"],
+                            key=f"cn_{level}_bold_{st.session_state.format_version}"
+                        )
+                    with col_italic:
+                        cfg["italic"] = st.checkbox(
+                            "字体斜体",
+                            cfg["italic"],
+                            key=f"cn_{level}_italic_{st.session_state.format_version}"
+                        )
                     cfg["color"] = st.color_picker(
                         "字体颜色",
                         cfg["color"],
@@ -1595,32 +1627,36 @@ def render_left_column() -> None:
             for level in FORMAT_LEVELS:
                 en_cfg = st.session_state.custom_en_format[level]
                 st.markdown(f"**{level}西文格式**")
-                col_en1, col_en2, col_en3 = st.columns(3)
+                col_en1, col_en2, col_en3 = st.columns(3, gap="small")
                 
                 with col_en1:
                     en_cfg["en_font"] = st.selectbox(
                         "西文字体",
                         EN_FONT_LIST,
                         index=EN_FONT_LIST.index(en_cfg["en_font"]) if en_cfg["en_font"] in EN_FONT_LIST else 0,
-                        key=f"en_{level}_font_{st.session_state.format_version}"
+                        key=f"en_{level}_font_{st.session_state.format_version}",
+                        label_visibility="collapsed"
                     )
                 with col_en2:
                     en_cfg["size_same_as_cn"] = st.checkbox(
-                        "西文字号与中文同步",
+                        "字号与中文同步",
                         en_cfg["size_same_as_cn"],
                         key=f"en_{level}_sync_{st.session_state.format_version}"
                     )
                 with col_en3:
-                    en_cfg["bold"] = st.checkbox(
-                        "西文加粗",
-                        en_cfg["bold"],
-                        key=f"en_{level}_bold_{st.session_state.format_version}"
-                    )
-                    en_cfg["italic"] = st.checkbox(
-                        "西文斜体",
-                        en_cfg["italic"],
-                        key=f"en_{level}_italic_{st.session_state.format_version}"
-                    )
+                    col_bold, col_italic = st.columns(2, gap="small")
+                    with col_bold:
+                        en_cfg["bold"] = st.checkbox(
+                            "西文加粗",
+                            en_cfg["bold"],
+                            key=f"en_{level}_bold_{st.session_state.format_version}"
+                        )
+                    with col_italic:
+                        en_cfg["italic"] = st.checkbox(
+                            "西文斜体",
+                            en_cfg["italic"],
+                            key=f"en_{level}_italic_{st.session_state.format_version}"
+                        )
                 
                 if not en_cfg["size_same_as_cn"]:
                     en_cfg["size"] = st.selectbox(
@@ -1635,7 +1671,7 @@ def render_left_column() -> None:
         
         # 下模块：模板导出
         st.markdown('<div class="left-bottom-block">', unsafe_allow_html=True)
-        st.markdown("### 📤 模板导出")
+        st.markdown("#### 📤 模板导出")
         export_type = st.radio(
             "导出格式",
             options=["JSON专用格式", "TXT通用格式"],
@@ -1643,7 +1679,7 @@ def render_left_column() -> None:
             horizontal=True,
             key="export_type_radio"
         )
-        st.caption("JSON格式：仅可用于本平台导入，完整保留所有参数；TXT格式：可查看编辑，兼容通用文本查看器")
+        st.caption("JSON可导入复用，TXT可查看编辑")
         
         if st.button("导出当前自定义模板", use_container_width=True):
             name_valid, name_msg = validate_template_name(template_name)
@@ -1667,26 +1703,26 @@ def render_left_column() -> None:
                 mime="application/json" if export_type_code == "json" else "text/plain",
                 use_container_width=True
             )
-        st.caption("导出的模板文件可在右侧模板导入区上传复用")
+        st.caption("导出的模板可在右侧导入区上传复用")
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
 def render_right_column() -> None:
-    """渲染右栏：主流程操作区（优化固定标题栏，保证与左栏齐平）"""
+    """渲染右栏：主流程操作区（紧凑布局，消除空白）"""
     with st.columns([1.2, 3.8])[1]:
         st.markdown('<div class="right-column">', unsafe_allow_html=True)
         
-        # 顶部标题栏：与左栏完全等高、样式同步
+        # 顶部标题栏：与左栏完全同步
         with st.container():
             st.markdown('<div class="fixed-header">', unsafe_allow_html=True)
             st.title("📝 智能论文&竞赛格式处理平台")
-            st.success("✅ 支持一键格式标准化 | WPS自动生成导航 | 知网参考文献优化 | 智能降重润色 | 格式合规检查")
+            st.success("✅ 一键格式标准化 | WPS导航生成 | 知网参考文献优化 | 智能降重润色 | 格式合规检查", icon="✅")
             st.markdown('</div>', unsafe_allow_html=True)
         
         # 模块1：文档格式标准化
         st.subheader("📄 第一步：文档格式标准化")
         st.markdown('<hr class="module-divider-green">', unsafe_allow_html=True)
-        col_template, col_upload = st.columns(2)
+        col_template, col_upload = st.columns(2, gap="small")
         
         # 模板选择与导入
         with col_template:
@@ -1737,7 +1773,7 @@ def render_right_column() -> None:
                 if error:
                     st.error(error)
                 elif template_data:
-                    st.success("✅ 模板解析成功！")
+                    st.success("✅ 模板解析成功！", icon="✅")
                     import_template_name = st.text_input(
                         "导入模板命名",
                         value=uploaded_template_file.name.split('.')[0],
@@ -1753,7 +1789,7 @@ def render_right_column() -> None:
                             st.session_state.selected_template = safe_name
                             st.session_state.selected_cn_format = copy.deepcopy(template_data["cn_format"])
                             st.session_state.selected_en_format = copy.deepcopy(template_data["en_format"])
-                            st.success(f"✅ 模板「{safe_name}」导入成功，已自动选中")
+                            st.success(f"✅ 模板「{safe_name}」导入成功，已自动选中", icon="✅")
                             st.session_state.format_version += 1
                             safe_rerun()
             
@@ -1771,7 +1807,7 @@ def render_right_column() -> None:
             
             # 辅助功能开关
             st.markdown("##### 辅助功能设置")
-            col_func1, col_func2 = st.columns(2)
+            col_func1, col_func2 = st.columns(2, gap="small")
             with col_func1:
                 bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True, help="开启后导出的文档在WPS中自动生成导航目录")
                 standardize_ref = st.checkbox("📚 知网参考文献标准化", value=True, help="自动调整参考文献格式，解决知网查重标红问题")
@@ -1792,7 +1828,7 @@ def render_right_column() -> None:
             if uploaded_files:
                 st.markdown("**已上传文件列表**")
                 for file in uploaded_files:
-                    col_file, col_del = st.columns([4,1])
+                    col_file, col_del = st.columns([4,1], gap="small")
                     with col_file:
                         st.caption(f"📄 {sanitize_html(file.name)} | {(file.size/1024/1024):.2f}MB")
                     with col_del:
@@ -1849,7 +1885,7 @@ def render_right_column() -> None:
                         
                         # 文档统计
                         st.markdown("**📊 文档结构统计**")
-                        cols_stat = st.columns(7)
+                        cols_stat = st.columns(7, gap="small")
                         cols_stat[0].metric("一级标题", title_stats["一级标题"])
                         cols_stat[1].metric("二级标题", title_stats["二级标题"])
                         cols_stat[2].metric("三级标题", title_stats["三级标题"])
@@ -1890,7 +1926,7 @@ def render_right_column() -> None:
         st.markdown('<hr class="module-divider-blue">', unsafe_allow_html=True)
         
         with st.expander("润色降重功能", expanded=st.session_state.need_polish):
-            col_polish_doc, col_polish_report = st.columns(2)
+            col_polish_doc, col_polish_report = st.columns(2, gap="small")
             
             # 待润色文档
             with col_polish_doc:
@@ -1902,7 +1938,7 @@ def render_right_column() -> None:
                     key="use_formatted_doc"
                 )
                 if use_formatted_doc and st.session_state.formatted_doc:
-                    st.info("✅ 已自动加载第一步排版完成的文档，无需重复上传")
+                    st.info("✅ 已自动加载第一步排版完成的文档，无需重复上传", icon="✅")
                     polish_file = st.session_state.formatted_doc
                 else:
                     polish_file = st.file_uploader(
@@ -1922,7 +1958,7 @@ def render_right_column() -> None:
                     key="use_original_report"
                 )
                 if use_original_report and st.session_state.learned_forbidden:
-                    st.info(f"✅ 已自动加载第一步查重标红内容，共{len(st.session_state.learned_forbidden)}处标红，将针对性降重")
+                    st.info(f"✅ 已自动加载第一步查重标红内容，共{len(st.session_state.learned_forbidden)}处标红，将针对性降重", icon="✅")
                     forbidden_text = st.session_state.learned_forbidden
                 else:
                     report_file = st.file_uploader(
@@ -1937,13 +1973,13 @@ def render_right_column() -> None:
                         if error:
                             st.error(error)
                         elif red_parts:
-                            st.success(f"✅ 解析完成！发现{len(red_parts)}处标红重复内容，将针对性降重")
+                            st.success(f"✅ 解析完成！发现{len(red_parts)}处标红重复内容，将针对性降重", icon="✅")
                             forbidden_text = red_parts
                             st.session_state.learned_forbidden = red_parts
             
             # 润色配置
             st.markdown("##### 润色配置")
-            col_config1, col_config2, col_config3 = st.columns([2,3,2])
+            col_config1, col_config2, col_config3 = st.columns([2,3,2], gap="small")
             with col_config1:
                 rewrite_level = st.selectbox(
                     "润色强度",
@@ -1995,9 +2031,9 @@ def render_right_column() -> None:
                             st.session_state.polish_report = polish_report
                             
                             # 结果展示
-                            st.success(f"✅ 润色完成！共优化{len(changes)}处内容")
+                            st.success(f"✅ 润色完成！共优化{len(changes)}处内容", icon="✅")
                             st.markdown("**📊 润色前后查重率对比**")
-                            col_rate1, col_rate2 = st.columns(2)
+                            col_rate1, col_rate2 = st.columns(2, gap="small")
                             with col_rate1:
                                 st.markdown(f"润色前查重率：**{st.session_state.original_check_rate}%**")
                                 st.progress(st.session_state.original_check_rate/100)
@@ -2022,7 +2058,7 @@ def render_right_column() -> None:
         # 模块3：成果输出
         st.subheader("📥 第三步：成果输出")
         st.markdown('<hr class="module-divider-gray">', unsafe_allow_html=True)
-        col_out1, col_out2, col_out3, col_out4 = st.columns(4)
+        col_out1, col_out2, col_out3, col_out4 = st.columns(4, gap="small")
         timestamp = st.session_state.process_timestamp
         
         # 排版后文档
