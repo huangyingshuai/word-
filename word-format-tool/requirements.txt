@@ -1,5 +1,7 @@
-streamlit>=1.28.0
+streamlit>=1.20.0
 python-docx>=0.8.11
-requests>=2.31.0
-pandas>=2.0.0
-textract>=1.6.5; sys_platform != 'win32'
+pandas>=1.5.0
+requests>=2.28.0
+# 可选依赖，如需处理doc/pdf可取消注释，部署时建议注释掉避免安装失败
+# textract>=1.6.5
+# pdfplumber>=0.10.0
