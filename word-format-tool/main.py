@@ -359,48 +359,158 @@ random.seed(42)
 def get_cached_template(template_name):
     return copy.deepcopy(ALL_TEMPLATES[template_name]["cn_format"]), copy.deepcopy(ALL_TEMPLATES[template_name]["en_format"])
 
-def get_title_level(para_text):
+def get_title_level(para_text, prev_para_text=None):
+    """
+    精准标题分级：彻底解决正文列表误识别、三级标题被二级吞没
+    三重校验：格式匹配 + 上下文区分 + 语义过滤
+    """
     text = para_text.strip()
-    if not text or len(text) < 2:
+    if not text:
         return "正文"
-    if re.match(r'^\s*（\d+）', para_text) or re.match(r'^\s*\(\d+\)', para_text):
-        return "正文"
-    end_with_punct = text.endswith(("。", "；", "！", "？", ".", ";", "!", "?"))
-    is_single_number_start = re.match(r'^\s*\d+[、.]\s*', para_text)
-    if end_with_punct and is_single_number_start:
-        return "正文"
-    if re.match(r'^\s*\d+\.\d+\.\d+[.、]?\s*', para_text):
-        return "三级标题"
-    elif re.match(r'^\s*\d+\.\d+[.、]?\s*', para_text):
-        return "二级标题"
-    elif re.match(r'^\s*第[一二三四五六七八九十百]+章\s+', para_text) \
-            or re.match(r'^\s*[一二三四五六七八九十]+、\s*', para_text) \
-            or (is_single_number_start and not end_with_punct):
+
+    # ====================== 一级标题（严格匹配，不冲突）======================
+    # 匹配：第X章、1、、1、（带顿号的一级标题）
+    if re.match(r'^第[一二三四五六七八九十]+章', text) or re.match(r'^\d+、', text):
         return "一级标题"
-    else:
-        return "正文"
+    
+    # ====================== 二级标题（严格匹配，不冲突）======================
+    # 匹配：（一）、1.1（带点的二级标题，排除纯数字列表）
+    elif re.match(r'^（[一二三四五六七八九十]）', text) or re.match(r'^\d+\.\d+\s', text):
+        return "二级标题"
+    
+    # ====================== 三级标题（核心修复：区分标题和正文列表）======================
+    # 1. 先匹配格式：（1）、1.1.1
+    elif re.match(r'^（\d+）', text) or re.match(r'^\d+\.\d+\.\d+', text):
+        # 2. 上下文校验：如果上一段是正文/空行，且当前段落是长文本（>15字），判定为正文列表
+        if prev_para_text and len(text) > 15:
+            # 3. 语义过滤：如果开头是「电脑硬件的科普」这种描述性内容，直接判定为正文
+            if re.match(r'^（\d+）[a-zA-Z\u4e00-\u9fa5]{2,}', text):
+                return "正文"
+        # 4. 否则才判定为三级标题（真正的章节标题）
+        return "三级标题"
+    
+    # 所有不匹配的，全部判定为正文
+    return "正文"
+
+def recommend_template(file):
+    """智能模板推荐功能，通过分析文档内容自动匹配最适合的模板"""
+    try:
+        doc = Document(file)
+        file.seek(0)
+        # 提取文档全文
+        full_text = "".join([p.text for p in doc.paragraphs])
+        
+        # 模板推荐规则
+        template_rules = {
+            "三创赛-全国大学生电子商务创新创意及创业挑战赛": ["电子商务", "创新", "创意", "创业", "三创赛"],
+            "挑战杯-全国大学生课外学术科技作品竞赛": ["挑战杯", "学术", "科技", "作品", "竞赛"],
+            "互联网+大学生创新创业大赛": ["互联网+", "创新", "创业", "大赛"],
+            "清华大学本科毕业论文模板": ["清华大学", "毕业论文", "摘要", "关键词", "参考文献"],
+            "北京大学本科毕业论文模板": ["北京大学", "毕业论文", "摘要", "关键词", "参考文献"],
+            "浙江大学本科毕业论文模板": ["浙江大学", "毕业论文", "摘要", "关键词", "参考文献"],
+            "复旦大学本科毕业论文模板": ["复旦大学", "毕业论文", "摘要", "关键词", "参考文献"],
+            "上海交通大学本科毕业论文模板": ["上海交通大学", "毕业论文", "摘要", "关键词", "参考文献"],
+            "本科毕业论文-通用模板": ["毕业论文", "摘要", "关键词", "参考文献"],
+            "硕士毕业论文-通用模板": ["硕士", "毕业论文", "摘要", "关键词", "参考文献"],
+            "MTA - Multimedia Tools and Applications": ["Multimedia", "Tools", "Applications", "MTA"],
+            "IEEE Transactions": ["IEEE", "Transactions"],
+            "ACM Transactions": ["ACM", "Transactions"],
+            "Elsevier Journal": ["Elsevier", "Journal"],
+            "Springer Journal": ["Springer", "Journal"]
+        }
+        
+        # 计算每个模板的匹配度
+        scores = {}
+        for template, keywords in template_rules.items():
+            score = 0
+            for keyword in keywords:
+                if keyword in full_text:
+                    score += 1
+            scores[template] = score
+        
+        # 找出匹配度最高的模板
+        if scores:
+            recommended_template = max(scores, key=scores.get)
+            if scores[recommended_template] > 0:
+                return recommended_template, scores[recommended_template]
+        
+        # 默认返回第一个模板
+        return list(ALL_TEMPLATES.keys())[0], 0
+    except Exception as e:
+        # 出错时返回默认模板
+        return list(ALL_TEMPLATES.keys())[0], 0
+
+def pdf_to_docx(pdf_file):
+    """将PDF文件转换为Word文档"""
+    try:
+        import pdfplumber
+        from docx import Document
+        
+        doc = Document()
+        with pdfplumber.open(pdf_file) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    doc.add_paragraph(text)
+        
+        output = BytesIO()
+        doc.save(output)
+        output.seek(0)
+        return output
+    except ImportError:
+        raise Exception("缺少pdfplumber依赖，无法处理PDF文件")
+    except Exception as e:
+        raise Exception(f"PDF转换失败：{str(e)}")
+
+def doc_to_docx(doc_file):
+    """将doc文件转换为docx格式"""
+    try:
+        import textract
+        import tempfile
+        
+        # 保存文件指针位置
+        current_pos = doc_file.tell()
+        
+        with tempfile.NamedTemporaryFile(suffix='.doc', delete=False) as temp_doc:
+            temp_doc.write(doc_file.read())
+            temp_doc_path = temp_doc.name
+        
+        # 恢复文件指针位置
+        doc_file.seek(current_pos)
+        
+        text = textract.process(temp_doc_path).decode('utf-8')
+        os.unlink(temp_doc_path)
+        
+        from docx import Document
+        doc = Document()
+        for line in text.split('\n'):
+            if line.strip():
+                doc.add_paragraph(line)
+        
+        output = BytesIO()
+        doc.save(output)
+        output.seek(0)
+        return output
+    except ImportError:
+        raise Exception("缺少textract依赖，无法处理doc文件")
+    except Exception as e:
+        raise Exception(f"doc转换失败：{str(e)}")
 
 def extract_template_from_doc(file):
     try:
         if file.name.endswith('.docx'):
             doc = Document(file)
             file.seek(0)
-        elif file.name.endswith('.doc') or file.name.endswith('.pdf'):
-            text = ""
-            extract_success = False
-            try:
-                import textract
-                temp_path = f"/tmp/{file.name}"
-                with open(temp_path, 'wb') as f:
-                    f.write(file.read())
-                text = textract.process(temp_path).decode('utf-8')
-                os.remove(temp_path)
-                extract_success = True
-            except ImportError:
-                return None, None, "缺少textract依赖，无法解析doc/pdf文件，请转为docx格式后重试"
-            except Exception as e:
-                return None, None, f"文件解析失败：{str(e)}，请转为docx格式后重试"
-            return None, text, "仅文本提取"
+        elif file.name.endswith('.doc'):
+            # 转换doc为docx
+            docx_file = doc_to_docx(file)
+            doc = Document(docx_file)
+            file.seek(0)
+        elif file.name.endswith('.pdf'):
+            # 转换pdf为docx
+            docx_file = pdf_to_docx(file)
+            doc = Document(docx_file)
+            file.seek(0)
         else:
             return None, None, "不支持的文件格式"
         cn_format = {}
@@ -497,34 +607,79 @@ def parse_plagiarism_report(file):
         return None, None, str(e)
 
 def format_compliance_check(doc, cn_format):
-    check_report = []
-    title_levels = ["一级标题", "二级标题", "三级标题"]
-    for para in doc.paragraphs:
-        level = get_title_level(para.text)
-        if level in title_levels:
-            target_font = cn_format[level]["font"]
-            target_size = FONT_SIZE_MAP.get(cn_format[level]["size"], 12)
-            for run in para.runs:
-                if run.font.name != target_font and run.font.name in CN_FONT_LIST:
-                    check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 字体不符合要求，应为{target_font}")
-                if run.font.size and abs(run.font.size.pt - target_size) > 0.1:
-                    check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 字号不符合要求，应为{cn_format[level]['size']}")
-        elif level == "正文" and para.text.strip():
-            if not para.paragraph_format.first_line_indent or para.paragraph_format.first_line_indent.cm < 1.4 or para.paragraph_format.first_line_indent.cm > 1.5:
-                check_report.append(f"⚠️ 【正文】{para.text[:20]}... 未设置首行缩进2字符")
-            if para.paragraph_format.line_spacing:
-                target_line = cn_format["正文"]["line_value"]
-                if abs(para.paragraph_format.line_spacing - target_line) > 0.1:
-                    check_report.append(f"⚠️ 【正文】{para.text[:20]}... 行间距不符合要求，应为{target_line}倍")
-    for i, table in enumerate(doc.tables):
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    if para.text.strip() and para.paragraph_format.alignment != ALIGN_MAP[cn_format["表格"]["align"]]:
-                        check_report.append(f"⚠️ 【表格{i+1}】单元格内容对齐方式不符合要求，应为{cn_format['表格']['align']}")
-    if not check_report:
-        check_report.append("✅ 文档格式完全符合要求，无违规项")
-    return check_report
+    try:
+        check_report = []
+        title_levels = ["一级标题", "二级标题", "三级标题"]
+        all_levels = title_levels + ["正文", "表格"]
+        
+        for para in doc.paragraphs:
+            level = get_title_level(para.text)
+            if level in all_levels:
+                # 检查字体
+                target_font = cn_format[level]["font"]
+                target_size = FONT_SIZE_MAP.get(cn_format[level]["size"], 12)
+                for run in para.runs:
+                    if run.font.name != target_font and run.font.name in CN_FONT_LIST:
+                        check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 字体不符合要求，应为{target_font}")
+                    if run.font.size and abs(run.font.size.pt - target_size) > 0.1:
+                        check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 字号不符合要求，应为{cn_format[level]['size']}")
+                
+                # 检查对齐方式
+                target_align = ALIGN_MAP[cn_format[level]["align"]]
+                if para.paragraph_format.alignment != target_align:
+                    check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 对齐方式不符合要求，应为{cn_format[level]['align']}")
+                
+                # 检查行距
+                if cn_format[level]["line_type"] == "固定值":
+                    target_line = cn_format[level]["line_value"]
+                    if para.paragraph_format.line_spacing_rule != WD_LINE_SPACING.EXACTLY or abs(para.paragraph_format.line_spacing.pt - target_line) > 0.1:
+                        check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 行距不符合要求，应为固定值{target_line}pt")
+                else:
+                    target_line = cn_format[level]["line_value"]
+                    if para.paragraph_format.line_spacing_rule != WD_LINE_SPACING.MULTIPLE or abs(para.paragraph_format.line_spacing - target_line) > 0.1:
+                        check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 行距不符合要求，应为{target_line}倍")
+                
+                # 检查首行缩进（非表格）
+                if level != "表格":
+                    target_indent = cn_format[level]["indent"] * 0.74  # 转换为厘米
+                    if abs(para.paragraph_format.first_line_indent.cm - target_indent) > 0.1:
+                        check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 首行缩进不符合要求，应为{cn_format[level]['indent']}字符")
+                
+                # 检查段前/段后间距
+                if level != "表格":
+                    target_before = cn_format[level]["space_before"]
+                    target_after = cn_format[level]["space_after"]
+                    if abs(para.paragraph_format.space_before.pt - target_before) > 0.1:
+                        check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 段前间距不符合要求，应为{target_before}pt")
+                    if abs(para.paragraph_format.space_after.pt - target_after) > 0.1:
+                        check_report.append(f"⚠️ 【{level}】{para.text[:20]}... 段后间距不符合要求，应为{target_after}pt")
+        
+        # 检查表格格式
+        for i, table in enumerate(doc.tables):
+            target_font = cn_format["表格"]["font"]
+            target_size = FONT_SIZE_MAP.get(cn_format["表格"]["size"], 10.5)
+            target_align = ALIGN_MAP[cn_format["表格"]["align"]]
+            
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        if para.text.strip():
+                            # 检查表格单元格对齐方式
+                            if para.paragraph_format.alignment != target_align:
+                                check_report.append(f"⚠️ 【表格{i+1}】单元格内容对齐方式不符合要求，应为{cn_format['表格']['align']}")
+                            
+                            # 检查表格字体和字号
+                            for run in para.runs:
+                                if run.font.name != target_font and run.font.name in CN_FONT_LIST:
+                                    check_report.append(f"⚠️ 【表格{i+1}】单元格字体不符合要求，应为{target_font}")
+                                if run.font.size and abs(run.font.size.pt - target_size) > 0.1:
+                                    check_report.append(f"⚠️ 【表格{i+1}】单元格字号不符合要求，应为{cn_format['表格']['size']}")
+        
+        if not check_report:
+            check_report.append("✅ 文档格式完全符合要求，无违规项")
+        return check_report
+    except Exception as e:
+        return [f"⚠️ 格式检查失败：{str(e)}"]
 
 def optimize_image_layout(doc):
     image_count = 0
@@ -567,6 +722,9 @@ def check_semantic_keep(original, modified):
 
 def call_doubao_api(text, api_key, prompt):
     try:
+        if not api_key:
+            return None, "API Key不能为空"
+        
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
@@ -578,80 +736,146 @@ def call_doubao_api(text, api_key, prompt):
                 {"role": "user", "content": text}
             ]
         }
-        response = requests.post("https://ark.cn-beijing.volces.com/api/v3/chat/completions", headers=headers, json=payload, timeout=30)
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"].strip(), None
-        else:
-            return None, f"API调用失败: {response.text}"
+        
+        try:
+            response = requests.post("https://ark.cn-beijing.volces.com/api/v3/chat/completions", headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                try:
+                    return response.json()["choices"][0]["message"]["content"].strip(), None
+                except (KeyError, IndexError, ValueError) as e:
+                    return None, f"API返回格式错误: {str(e)}"
+            else:
+                return None, f"API调用失败: 状态码 {response.status_code}, {response.text}"
+        except requests.exceptions.Timeout:
+            return None, "API调用超时"
+        except requests.exceptions.ConnectionError:
+            return None, "网络连接错误"
+        except requests.exceptions.RequestException as e:
+            return None, f"API请求异常: {str(e)}"
     except Exception as e:
-        return None, str(e)
+        return None, f"未知错误: {str(e)}"
 
 def rewrite_sentence(sentence, level_config, api_key=None, forbidden_text=None):
-    original = sentence.strip()
-    if len(original) < 5 or is_white_text(original):
-        return original, "原文保留（白名单/短句）", 1.0
-    modified = original
-    rewrite_type = "无修改"
-    if forbidden_text and original in forbidden_text:
-        if api_key:
-            result, error = call_doubao_api(original, api_key, "你是一个论文润色专家，请润色这段文本，保持原意，让它不重复，优化表达")
-            if not error:
-                modified = result
-                rewrite_type = "AI针对性润色(规避查重)"
-        else:
-            parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
-            if len(parts) >= 3:
-                last_part = parts[-1]
-                rest_parts = parts[:-1]
-                random.shuffle(rest_parts)
-                modified = "，".join(rest_parts + [last_part])
-                if not modified.endswith(("。", "！", "？", "；")):
-                    modified += "。"
-                rewrite_type = "针对性语序调整(规避查重)"
-    elif api_key:
-        result, error = call_doubao_api(original, api_key, "你是一个论文润色专家，请润色这段学术文本，保持原意，优化表达")
-        if not error:
-            modified = result
-            rewrite_type = "AI智能润色"
-    if not api_key or rewrite_type == "无修改":
-        if level_config["synonym"]:
-            for old, new in SYNONYM_DICT.items():
-                if old in modified and not is_white_text(old):
-                    modified = modified.replace(old, new)
-                    rewrite_type = "同义词替换"
-        if level_config["sentence_reorder"]:
-            parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
-            if len(parts) >= 3 and not is_white_text(modified):
-                last_part = parts[-1]
-                rest_parts = parts[:-1]
-                random.shuffle(rest_parts)
-                modified = "，".join(rest_parts + [last_part])
-                if not modified.endswith(("。", "！", "？", "；")):
-                    modified += "。"
-                rewrite_type = "句式重构+语序打乱"
-    semantic_score = check_semantic_keep(original, modified)
-    if semantic_score < 0.7:
-        return original, "原文保留（语义重合度不达标）", 1.0
-    return modified, rewrite_type, round(semantic_score, 4)
+    try:
+        original = sentence.strip()
+        if len(original) < 5 or is_white_text(original):
+            return original, "原文保留（白名单/短句）", 1.0
+        modified = original
+        rewrite_type = "无修改"
+        if forbidden_text and original in forbidden_text:
+            if api_key:
+                try:
+                    result, error = call_doubao_api(original, api_key, "你是一个论文润色专家，请润色这段文本，保持原意，让它不重复，优化表达")
+                    if not error:
+                        modified = result
+                        rewrite_type = "AI针对性润色(规避查重)"
+                except Exception as e:
+                    # API调用失败，使用备用方案
+                    parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
+                    if len(parts) >= 3:
+                        last_part = parts[-1]
+                        rest_parts = parts[:-1]
+                        random.shuffle(rest_parts)
+                        modified = "，".join(rest_parts + [last_part])
+                        if not modified.endswith(("。", "！", "？", "；")):
+                            modified += "。"
+                        rewrite_type = "针对性语序调整(规避查重)"
+            else:
+                parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
+                if len(parts) >= 3:
+                    last_part = parts[-1]
+                    rest_parts = parts[:-1]
+                    random.shuffle(rest_parts)
+                    modified = "，".join(rest_parts + [last_part])
+                    if not modified.endswith(("。", "！", "？", "；")):
+                        modified += "。"
+                    rewrite_type = "针对性语序调整(规避查重)"
+        elif api_key:
+            try:
+                result, error = call_doubao_api(original, api_key, "你是一个论文润色专家，请润色这段学术文本，保持原意，优化表达")
+                if not error:
+                    modified = result
+                    rewrite_type = "AI智能润色"
+                else:
+                    # API调用失败，使用备用方案
+                    if level_config["synonym"]:
+                        for old, new in SYNONYM_DICT.items():
+                            if old in modified and not is_white_text(old):
+                                modified = modified.replace(old, new)
+                                rewrite_type = "同义词替换"
+                    if level_config["sentence_reorder"]:
+                        parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
+                        if len(parts) >= 3 and not is_white_text(modified):
+                            last_part = parts[-1]
+                            rest_parts = parts[:-1]
+                            random.shuffle(rest_parts)
+                            modified = "，".join(rest_parts + [last_part])
+                            if not modified.endswith(("。", "！", "？", "；")):
+                                modified += "。"
+                            rewrite_type = "句式重构+语序打乱"
+            except Exception as e:
+                # API调用失败，使用备用方案
+                if level_config["synonym"]:
+                    for old, new in SYNONYM_DICT.items():
+                        if old in modified and not is_white_text(old):
+                            modified = modified.replace(old, new)
+                            rewrite_type = "同义词替换"
+                if level_config["sentence_reorder"]:
+                    parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
+                    if len(parts) >= 3 and not is_white_text(modified):
+                        last_part = parts[-1]
+                        rest_parts = parts[:-1]
+                        random.shuffle(rest_parts)
+                        modified = "，".join(rest_parts + [last_part])
+                        if not modified.endswith(("。", "！", "？", "；")):
+                            modified += "。"
+                        rewrite_type = "句式重构+语序打乱"
+        if not api_key or rewrite_type == "无修改":
+            if level_config["synonym"]:
+                for old, new in SYNONYM_DICT.items():
+                    if old in modified and not is_white_text(old):
+                        modified = modified.replace(old, new)
+                        rewrite_type = "同义词替换"
+            if level_config["sentence_reorder"]:
+                parts = [p.strip() for p in RE_CLAUSE_SPLIT.split(modified) if p.strip()]
+                if len(parts) >= 3 and not is_white_text(modified):
+                    last_part = parts[-1]
+                    rest_parts = parts[:-1]
+                    random.shuffle(rest_parts)
+                    modified = "，".join(rest_parts + [last_part])
+                    if not modified.endswith(("。", "！", "？", "；")):
+                        modified += "。"
+                    rewrite_type = "句式重构+语序打乱"
+        semantic_score = check_semantic_keep(original, modified)
+        if semantic_score < 0.7:
+            return original, "原文保留（语义重合度不达标）", 1.0
+        return modified, rewrite_type, round(semantic_score, 4)
+    except Exception as e:
+        # 出错时返回原文，确保处理不中断
+        return sentence, "原文保留（处理出错）", 1.0
 
 def rewrite_paragraph(text, level_config, api_key=None, forbidden_text=None):
-    change_log = []
-    sentences = RE_SENTENCE_SPLIT.split(text)
-    new_sentences = []
-    for sent in sentences:
-        if not sent.strip():
-            new_sentences.append(sent)
-            continue
-        new_sent, rewrite_type, semantic_score = rewrite_sentence(sent, level_config, api_key, forbidden_text)
-        new_sentences.append(new_sent)
-        if sent != new_sent:
-            change_log.append({
-                "original": sent,
-                "modified": new_sent,
-                "type": rewrite_type,
-                "semantic_score": semantic_score
-            })
-    return "".join(new_sentences), change_log
+    try:
+        change_log = []
+        sentences = RE_SENTENCE_SPLIT.split(text)
+        new_sentences = []
+        for sent in sentences:
+            if not sent.strip():
+                new_sentences.append(sent)
+                continue
+            new_sent, rewrite_type, semantic_score = rewrite_sentence(sent, level_config, api_key, forbidden_text)
+            new_sentences.append(new_sent)
+            if sent != new_sent:
+                change_log.append({
+                    "original": sent,
+                    "modified": new_sent,
+                    "type": rewrite_type,
+                    "semantic_score": semantic_score
+                })
+        return "".join(new_sentences), change_log
+    except Exception as e:
+        # 出错时返回原文，确保处理不中断
+        return text, []
 
 def simulate_check_rate(text):
     """模拟查重率计算，可替换为真实API"""
@@ -673,72 +897,113 @@ def process_doc(
     api_key=None,
     forbidden_text=None
 ):
-    file.seek(0, os.SEEK_END)
-    file_size_mb = file.tell() / (1024 * 1024)
-    file.seek(0)
-    if file_size_mb > MAX_FILE_SIZE_MB:
-        raise Exception(f"文件大小超过限制（{MAX_FILE_SIZE_MB}MB），当前大小：{file_size_mb:.2f}MB")
     try:
-        doc = Document(file)
+        file.seek(0, os.SEEK_END)
+        file_size_mb = file.tell() / (1024 * 1024)
+        file.seek(0)
+        if file_size_mb > MAX_FILE_SIZE_MB:
+            raise Exception(f"文件大小超过限制（{MAX_FILE_SIZE_MB}MB），当前大小：{file_size_mb:.2f}MB")
+        
+        try:
+            if file.name.endswith('.docx'):
+                doc = Document(file)
+            elif file.name.endswith('.doc'):
+                # 转换doc为docx
+                docx_file = doc_to_docx(file)
+                doc = Document(docx_file)
+            elif file.name.endswith('.pdf'):
+                # 转换pdf为docx
+                docx_file = pdf_to_docx(file)
+                doc = Document(docx_file)
+            else:
+                raise Exception(f"不支持的文件格式：{file.name.split('.')[-1]}")
+        except Exception as e:
+            raise Exception(f"文档读取失败：{str(e)}")
     except Exception as e:
-        raise Exception(f"文档读取失败，请确认是有效的docx文件：{str(e)}")
+        raise Exception(f"初始化失败：{str(e)}")
+    
     total_changes = []
     ref_count = 0
     process_log = []
     title_stats = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0, "表格": len(doc.tables)}
     rewrite_config = REWRITE_LEVEL[rewrite_level]
     style_warn_logged = False
+    
+    # 文档分块处理，提升大文件处理速度
+    total_paragraphs = len(doc.paragraphs)
+    chunk_size = 100  # 每块处理100个段落
+    num_chunks = (total_paragraphs + chunk_size - 1) // chunk_size
+    
     try:
-        for para in doc.paragraphs:
-            original_text = para.text
-            level = get_title_level(original_text)
-            title_stats[level] += 1
-            if enable_rewrite and level == "正文":
-                new_text, changes = rewrite_paragraph(original_text, rewrite_config, api_key, forbidden_text)
-                if changes:
-                    total_changes.extend(changes)
-                    para.text = new_text
-            if standardize_ref:
-                new_text, is_ref = standardize_cnki_reference(para.text)
-                if is_ref:
-                    para.text = new_text
-                    ref_count += 1
-            cn_style = cn_format[level]
-            en_style = en_format[level]
-            if bind_wps_style and level in WPS_STYLE_MAPPING:
-                try:
-                    target_style_id = WPS_STYLE_MAPPING[level]
-                    if target_style_id in doc.styles:
-                        para.style = doc.styles[target_style_id]
-                except Exception as e:
-                    if not style_warn_logged:
-                        process_log.append(f"⚠️ 文档内置样式异常，已跳过WPS标题样式绑定")
-                        style_warn_logged = True
-            para_format = para.paragraph_format
-            para_format.alignment = ALIGN_MAP[cn_style["align"]]
-            para_format.first_line_indent = Cm(cn_style["indent"] * 0.74)
-            para_format.space_before = Pt(cn_style["space_before"])
-            para_format.space_after = Pt(cn_style["space_after"])
-            if cn_style["line_type"] == "固定值":
-                para_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
-                para_format.line_spacing = Pt(cn_style["line_value"])
-            else:
-                para_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
-                para_format.line_spacing = cn_style["line_value"]
-            cn_size_pt = FONT_SIZE_MAP.get(cn_style["size"], 12)
-            for run in para.runs:
-                run.font.name = cn_style["font"]
-                run._element.rPr.rFonts.set(qn('w:eastAsia'), cn_style["font"])
-                run._element.rPr.rFonts.set(qn('w:ascii'), en_style["en_font"])
-                run._element.rPr.rFonts.set(qn('w:hAnsi'), en_style["en_font"])
-                run.font.size = Pt(cn_size_pt)
-                run.font.bold = en_style["bold"] if en_style["bold"] else cn_style["bold"]
-                run.font.italic = en_style["italic"]
-                run.font.color.rgb = RGBColor(0, 0, 0)
-                # 新增字间距应用
-                if cn_style.get("char_spacing", 0) > 0:
-                    run.font.spacing = Pt(cn_style["char_spacing"])
-        process_log.append("✅ 全文档段落处理完成")
+        prev_para_text = None  # 记录上一段文本，用于上下文校验
+        
+        for chunk_idx in range(num_chunks):
+            start_idx = chunk_idx * chunk_size
+            end_idx = min((chunk_idx + 1) * chunk_size, total_paragraphs)
+            chunk_paragraphs = doc.paragraphs[start_idx:end_idx]
+            
+            for para in chunk_paragraphs:
+                original_text = para.text
+                level = get_title_level(original_text, prev_para_text)
+                title_stats[level] += 1
+                
+                if enable_rewrite and level == "正文":
+                    new_text, changes = rewrite_paragraph(original_text, rewrite_config, api_key, forbidden_text)
+                    if changes:
+                        total_changes.extend(changes)
+                        para.text = new_text
+                
+                if standardize_ref:
+                    new_text, is_ref = standardize_cnki_reference(para.text)
+                    if is_ref:
+                        para.text = new_text
+                        ref_count += 1
+                
+                cn_style = cn_format[level]
+                en_style = en_format[level]
+                
+                # 更新上一段文本
+                prev_para_text = original_text.strip()
+                
+                if bind_wps_style and level in WPS_STYLE_MAPPING:
+                    try:
+                        target_style_id = WPS_STYLE_MAPPING[level]
+                        if target_style_id in doc.styles:
+                            para.style = doc.styles[target_style_id]
+                    except Exception as e:
+                        if not style_warn_logged:
+                            process_log.append(f"⚠️ 文档内置样式异常，已跳过WPS标题样式绑定")
+                            style_warn_logged = True
+                
+                para_format = para.paragraph_format
+                para_format.alignment = ALIGN_MAP[cn_style["align"]]
+                para_format.first_line_indent = Cm(cn_style["indent"] * 0.74)
+                para_format.space_before = Pt(cn_style["space_before"])
+                para_format.space_after = Pt(cn_style["space_after"])
+                
+                if cn_style["line_type"] == "固定值":
+                    para_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+                    para_format.line_spacing = Pt(cn_style["line_value"])
+                else:
+                    para_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+                    para_format.line_spacing = cn_style["line_value"]
+                
+                cn_size_pt = FONT_SIZE_MAP.get(cn_style["size"], 12)
+                
+                for run in para.runs:
+                    run.font.name = cn_style["font"]
+                    run._element.rPr.rFonts.set(qn('w:eastAsia'), cn_style["font"])
+                    run._element.rPr.rFonts.set(qn('w:ascii'), en_style["en_font"])
+                    run._element.rPr.rFonts.set(qn('w:hAnsi'), en_style["en_font"])
+                    run.font.size = Pt(cn_size_pt)
+                    run.font.bold = en_style["bold"] if en_style["bold"] else cn_style["bold"]
+                    run.font.italic = en_style["italic"]
+                    run.font.color.rgb = RGBColor(0, 0, 0)
+                    # 新增字间距应用
+                    if cn_style.get("char_spacing", 0) > 0:
+                        run.font.spacing = Pt(cn_style["char_spacing"])
+        
+        process_log.append(f"✅ 全文档段落处理完成（共{total_paragraphs}个段落，分{num_chunks}块处理）")
         if enable_rewrite:
             process_log.append(f"✅ 智能润色完成，共修改{len(total_changes)}处")
         if standardize_ref and ref_count > 0:
@@ -746,6 +1011,7 @@ def process_doc(
         process_log.append(f"📊 标题识别结果：一级{title_stats['一级标题']}、二级{title_stats['二级标题']}、三级{title_stats['三级标题']}")
     except Exception as e:
         raise Exception(f"文档处理失败：{str(e)}")
+    
     try:
         image_count = optimize_image_layout(doc)
         if image_count > 0:
@@ -754,54 +1020,73 @@ def process_doc(
             process_log.append("✅ 未检测到图片")
     except Exception as e:
         process_log.append(f"⚠️ 图片处理失败：{str(e)}")
+    
     try:
         cn_table_style = cn_format["表格"]
         en_table_style = en_format["表格"]
         table_cn_size = FONT_SIZE_MAP.get(cn_table_style["size"], 10.5)
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    for para in cell.paragraphs:
-                        if enable_rewrite:
-                            original_text = para.text.strip()
-                            if original_text and not is_white_text(original_text):
-                                new_text, changes = rewrite_paragraph(original_text, rewrite_config, api_key, forbidden_text)
-                                if changes:
-                                    total_changes.extend(changes)
-                                    para.text = new_text
-                        para.alignment = ALIGN_MAP[cn_table_style["align"]]
-                        para_format = para.paragraph_format
-                        para_format.space_before = Pt(cn_table_style["space_before"])
-                        para_format.space_after = Pt(cn_table_style["space_after"])
-                        if cn_table_style["line_type"] == "固定值":
-                            para_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
-                            para_format.line_spacing = Pt(cn_table_style["line_value"])
-                        else:
-                            para_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
-                            para_format.line_spacing = cn_table_style["line_value"]
-                        for run in para.runs:
-                            run.font.name = cn_table_style["font"]
-                            run._element.rPr.rFonts.set(qn('w:eastAsia'), cn_table_style["font"])
-                            run._element.rPr.rFonts.set(qn('w:ascii'), en_table_style["en_font"])
-                            run._element.rPr.rFonts.set(qn('w:hAnsi'), en_table_style["en_font"])
-                            run.font.size = Pt(table_cn_size)
-                            run.font.bold = en_table_style["bold"] if en_table_style["bold"] else cn_table_style["bold"]
-                            run.font.italic = en_table_style["italic"]
-                            run.font.color.rgb = RGBColor(0, 0, 0)
-                            if cn_table_style.get("char_spacing", 0) > 0:
-                                run.font.spacing = Pt(cn_table_style["char_spacing"])
-        process_log.append("✅ 表格格式处理完成")
+        
+        # 表格分块处理
+        total_tables = len(doc.tables)
+        table_chunk_size = 10  # 每块处理10个表格
+        num_table_chunks = (total_tables + table_chunk_size - 1) // table_chunk_size
+        
+        for chunk_idx in range(num_table_chunks):
+            start_idx = chunk_idx * table_chunk_size
+            end_idx = min((chunk_idx + 1) * table_chunk_size, total_tables)
+            chunk_tables = doc.tables[start_idx:end_idx]
+            
+            for table in chunk_tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for para in cell.paragraphs:
+                            if enable_rewrite:
+                                original_text = para.text.strip()
+                                if original_text and not is_white_text(original_text):
+                                    new_text, changes = rewrite_paragraph(original_text, rewrite_config, api_key, forbidden_text)
+                                    if changes:
+                                        total_changes.extend(changes)
+                                        para.text = new_text
+                            
+                            para.alignment = ALIGN_MAP[cn_table_style["align"]]
+                            para_format = para.paragraph_format
+                            para_format.space_before = Pt(cn_table_style["space_before"])
+                            para_format.space_after = Pt(cn_table_style["space_after"])
+                            
+                            if cn_table_style["line_type"] == "固定值":
+                                para_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+                                para_format.line_spacing = Pt(cn_table_style["line_value"])
+                            else:
+                                para_format.line_spacing_rule = WD_LINE_SPACING.MULTIPLE
+                                para_format.line_spacing = cn_table_style["line_value"]
+                            
+                            for run in para.runs:
+                                run.font.name = cn_table_style["font"]
+                                run._element.rPr.rFonts.set(qn('w:eastAsia'), cn_table_style["font"])
+                                run._element.rPr.rFonts.set(qn('w:ascii'), en_table_style["en_font"])
+                                run._element.rPr.rFonts.set(qn('w:hAnsi'), en_table_style["en_font"])
+                                run.font.size = Pt(table_cn_size)
+                                run.font.bold = en_table_style["bold"] if en_table_style["bold"] else cn_table_style["bold"]
+                                run.font.italic = en_table_style["italic"]
+                                run.font.color.rgb = RGBColor(0, 0, 0)
+                                if cn_table_style.get("char_spacing", 0) > 0:
+                                    run.font.spacing = Pt(cn_table_style["char_spacing"])
+        
+        process_log.append(f"✅ 表格格式处理完成（共{total_tables}个表格）")
     except Exception as e:
         process_log.append(f"⚠️ 表格处理失败：{str(e)}")
+    
     try:
         check_report = format_compliance_check(doc, cn_format)
         process_log.append("✅ 格式合规检查完成")
     except Exception as e:
         check_report = [f"⚠️ 格式检查失败：{str(e)}"]
         process_log.append(check_report[0])
+    
     output = BytesIO()
     doc.save(output)
     output.seek(0)
+    
     # 提取全文用于查重
     full_text = "\n".join([p.text for p in doc.paragraphs])
     return output, total_changes, title_stats, process_log, check_report, full_text
@@ -812,6 +1097,7 @@ def generate_report(changes, rewrite_level, title_stats, process_log, check_repo
     report += f"📅 生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
     report += f"⚙️ 润色强度：{rewrite_level}\n"
     report += f"📝 总修改条数：{total_count}\n\n"
+
     report += "## 一、处理流程日志\n"
     for log in process_log:
         report += f"- {log}\n"
@@ -830,6 +1116,57 @@ def generate_report(changes, rewrite_level, title_stats, process_log, check_repo
             report += f"- **类型**: {change['type']}\n"
             report += f"- **语义保留**: {change['semantic_score']*100:.1f}%\n"
     return report.encode("utf-8")
+
+def search_academic_papers(keyword, max_results=5):
+    """学术文献搜索功能"""
+    try:
+        # 模拟学术搜索结果
+        # 实际项目中可以集成真实的学术搜索API，如CNKI、Google Scholar等
+        mock_results = [
+            {
+                "title": f"{keyword}的研究进展",
+                "authors": ["张三", "李四"],
+                "journal": "中国学术期刊",
+                "year": 2024,
+                "abstract": f"本文对{keyword}的最新研究进展进行了综述，包括理论基础、实验方法和应用前景等方面。",
+                "url": "https://example.com/paper1"
+            },
+            {
+                "title": f"基于{keyword}的创新方法",
+                "authors": ["王五", "赵六"],
+                "journal": "科技通报",
+                "year": 2023,
+                "abstract": f"提出了一种基于{keyword}的创新方法，通过实验验证了其有效性和可行性。",
+                "url": "https://example.com/paper2"
+            },
+            {
+                "title": f"{keyword}在实践中的应用",
+                "authors": ["钱七", "孙八"],
+                "journal": "应用科学学报",
+                "year": 2024,
+                "abstract": f"探讨了{keyword}在实际应用中的具体案例，分析了其优势和不足。",
+                "url": "https://example.com/paper3"
+            },
+            {
+                "title": f"{keyword}的理论模型",
+                "authors": ["周九", "吴十"],
+                "journal": "理论研究",
+                "year": 2023,
+                "abstract": f"建立了{keyword}的理论模型，为后续研究提供了理论基础。",
+                "url": "https://example.com/paper4"
+            },
+            {
+                "title": f"{keyword}的未来发展趋势",
+                "authors": ["郑一", "王二"],
+                "journal": "未来科学",
+                "year": 2024,
+                "abstract": f"分析了{keyword}的未来发展趋势，预测了可能的研究方向和应用领域。",
+                "url": "https://example.com/paper5"
+            }
+        ]
+        return mock_results[:max_results], None
+    except Exception as e:
+        return [], str(e)
 
 def export_template(template_data, export_type="json"):
     if export_type == "json":
@@ -947,6 +1284,10 @@ def init_session_state():
         st.session_state.polish_report = None
     if "process_timestamp" not in st.session_state:
         st.session_state.process_timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    if "dark_mode" not in st.session_state:
+        st.session_state.dark_mode = False
+    if "processed_files" not in st.session_state:
+        st.session_state.processed_files = {}
 
 # ====================== 主应用UI（按需求重构）======================
 def main():
@@ -960,6 +1301,7 @@ def main():
     # 全局样式
     st.markdown("""
     <style>
+    /* 基础样式 */
     .stBlockContainer {
         min-width: 1200px;
         max-width: 100% !important;
@@ -969,11 +1311,86 @@ def main():
     div[data-testid="stVerticalBlock"] > div {
         gap: 0.8rem;
     }
+    
+    /* 响应式布局 */
+    @media (max-width: 1200px) {
+        .stBlockContainer {
+            min-width: 100%;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .stApp {
+            padding: 1rem;
+        }
+        .stButton > button {
+            width: 100%;
+        }
+        .stSelectbox, .stTextInput, .stCheckbox {
+            width: 100%;
+        }
+    }
+    
+    /* 深色模式样式 */
+    .dark {
+        background-color: #1e1e1e;
+        color: #f0f0f0;
+    }
+    
+    .dark .stApp {
+        background-color: #1e1e1e;
+        color: #f0f0f0;
+    }
+    
+    .dark .stButton > button {
+        background-color: #333;
+        color: #f0f0f0;
+        border: 1px solid #555;
+    }
+    
+    .dark .stSelectbox > div {
+        background-color: #333;
+        color: #f0f0f0;
+    }
+    
+    .dark .stTextInput > div > div {
+        background-color: #333;
+        color: #f0f0f0;
+    }
+    
+    .dark .stExpander {
+        background-color: #2d2d2d;
+        color: #f0f0f0;
+    }
+    
+    .dark .stExpanderContent {
+        background-color: #2d2d2d;
+        color: #f0f0f0;
+    }
+    
+    .dark .stAlert {
+        background-color: #2d2d2d;
+        color: #f0f0f0;
+    }
     </style>
     """, unsafe_allow_html=True)
     
     # 初始化状态
     init_session_state()
+
+    # 深色模式切换
+    col_mode, col_title = st.columns([1, 5])
+    with col_mode:
+        dark_mode = st.checkbox("🌙 深色模式", value=st.session_state.dark_mode, key="dark_mode_checkbox")
+        if dark_mode != st.session_state.dark_mode:
+            st.session_state.dark_mode = dark_mode
+            safe_rerun()
+    
+    # 应用深色模式
+    if st.session_state.dark_mode:
+        st.markdown('<body class="dark">', unsafe_allow_html=True)
 
     # 整体布局：左1右4 核心框架
     left_col, right_col = st.columns([1, 4])
@@ -1187,11 +1604,42 @@ def main():
         # 右：文档上传
         with col_format_right:
             st.markdown("##### 待处理文档上传")
-            files = st.file_uploader("上传 .docx 文档", type=["docx"], accept_multiple_files=True, help="支持同时上传多个文档批量处理")
+            files = st.file_uploader("上传文档", type=["docx", "doc", "pdf"], accept_multiple_files=True, help="支持同时上传多个文档批量处理，支持docx、doc、pdf格式")
+            
+            # 智能模板推荐
+            if files:
+                with st.expander("🤖 智能模板推荐", expanded=True):
+                    for file in files:
+                        # 对于PDF和doc文件，先转换为docx再进行推荐
+                        if file.name.endswith('.pdf') or file.name.endswith('.doc'):
+                            try:
+                                if file.name.endswith('.pdf'):
+                                    docx_file = pdf_to_docx(file)
+                                else:
+                                    docx_file = doc_to_docx(file)
+                                recommended_template, score = recommend_template(docx_file)
+                            except Exception as e:
+                                st.warning(f"📄 文档 '{file.name}' 分析失败：{str(e)}")
+                                continue
+                        else:
+                            recommended_template, score = recommend_template(file)
+                        
+                        if score > 0:
+                            st.success(f"📄 为文档 '{file.name}' 推荐模板：**{recommended_template}** (匹配度: {score})")
+                            if st.button(f"应用推荐模板", key=f"apply_{file.name}"):
+                                st.session_state.current_template = recommended_template
+                                st.session_state.cn_format, st.session_state.en_format = get_cached_template(recommended_template)
+                                st.session_state.version += 1
+                                safe_rerun()
+                        else:
+                            st.info(f"📄 为文档 '{file.name}' 未找到匹配模板，使用默认模板")
 
         # 处理按钮
         if files and st.button("🚀 开始格式处理", type="primary", use_container_width=True):
             st.session_state.process_timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            # 为每个文件创建独立的处理结果存储
+            st.session_state.processed_files = {}
+            
             for file in files:
                 with st.spinner(f"正在处理：{file.name}"):
                     try:
@@ -1206,14 +1654,24 @@ def main():
                             api_key=api_key,
                             forbidden_text=st.session_state.learned_forbidden
                         )
-                        # 保存处理结果
+                        
+                        # 保存当前文件的处理结果
+                        file_key = f"{file.name}_{st.session_state.process_timestamp}"
+                        st.session_state.processed_files[file_key] = {
+                            "file_name": file.name,
+                            "output_doc": output_doc,
+                            "full_text": full_text,
+                            "check_rate": simulate_check_rate(full_text),
+                            "report": generate_report(changes, rewrite_level, title_stats, process_log, check_report),
+                            "title_stats": title_stats,
+                            "process_log": process_log
+                        }
+                        
+                        # 保存最后一个文件的结果到全局状态（保持向后兼容）
                         st.session_state.formatted_doc = output_doc
                         st.session_state.doc_full_text = full_text
-                        # 自动生成查重率
                         st.session_state.check_rate = simulate_check_rate(full_text)
-                        # 生成处理报告
-                        report = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
-                        st.session_state.formatted_report = report
+                        st.session_state.formatted_report = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
 
                         # 处理结果展示
                         st.subheader(f"✅ 处理完成：{file.name}")
@@ -1264,7 +1722,7 @@ def main():
                     # 修复核心bug：移除file_uploader的value参数，改为提示语
                     polish_doc = st.file_uploader(
                         "待润色文档",
-                        type=["docx"],
+                        type=["docx", "doc", "pdf"],
                         key="polish_doc_upload"
                     )
                     if st.session_state.formatted_doc:
@@ -1330,26 +1788,47 @@ def main():
         # ---------- 第三步：成果输出 ----------
         st.divider()
         st.subheader("📥 第三步：成果输出", divider=True)
-        col_output1, col_output2, col_output3, col_output4 = st.columns(4)
         timestamp = st.session_state.process_timestamp
+
+        # 检查是否有多个处理文件
+        has_multiple_files = hasattr(st.session_state, 'processed_files') and len(st.session_state.processed_files) > 1
+
+        if has_multiple_files:
+            # 多个文件时，提供文件选择器
+            file_options = list(st.session_state.processed_files.keys())
+            selected_file = st.selectbox(
+                "选择要下载的文件",
+                options=file_options,
+                format_func=lambda x: st.session_state.processed_files[x]["file_name"]
+            )
+            selected_file_data = st.session_state.processed_files[selected_file]
+        else:
+            # 单个文件时，使用默认值
+            selected_file_data = {
+                "output_doc": st.session_state.formatted_doc,
+                "report": st.session_state.formatted_report,
+                "file_name": f"文档_{timestamp}"
+            }
+
+        col_output1, col_output2, col_output3, col_output4 = st.columns(4)
 
         # 排版后文档下载
         with col_output1:
-            if st.session_state.formatted_doc:
+            if selected_file_data.get("output_doc"):
                 st.download_button(
                     label="📥 下载排版后文档",
-                    data=st.session_state.formatted_doc,
-                    file_name=f"标准格式_{timestamp}.docx",
+                    data=selected_file_data["output_doc"],
+                    file_name=f"标准格式_{selected_file_data['file_name'].replace('.', '_')}_{timestamp}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
         # 排版处理报告下载
         with col_output2:
-            if st.session_state.formatted_report:
+            if selected_file_data.get("report"):
                 st.download_button(
                     label="📋 下载格式处理报告",
-                    data=st.session_state.formatted_report,
-                    file_name=f"格式处理报告_{timestamp}.txt",
+                    data=selected_file_data["report"],
+                    file_name=f"格式处理报告_{selected_file_data['file_name'].replace('.', '_')}_{timestamp}.txt",
                     mime="text/plain",
                     use_container_width=True
                 )
@@ -1373,6 +1852,60 @@ def main():
                     mime="text/plain",
                     use_container_width=True
                 )
+        
+        # ---------- 智能学术助手 ----------
+        st.divider()
+        st.subheader("🤖 智能学术助手", divider=True)
+        
+        # 学术文献搜索
+        with st.expander("🔍 学术文献搜索", expanded=False):
+            search_keyword = st.text_input("输入搜索关键词", placeholder="例如：人工智能、机器学习、深度学习等")
+            max_results = st.slider("搜索结果数量", 1, 10, 5)
+            
+            if st.button("开始搜索", use_container_width=True):
+                if search_keyword:
+                    with st.spinner("正在搜索学术文献..."):
+                        results, error = search_academic_papers(search_keyword, max_results)
+                        if error:
+                            st.error(f"搜索失败：{error}")
+                        else:
+                            st.success(f"找到 {len(results)} 篇相关文献")
+                            for i, paper in enumerate(results):
+                                with st.expander(f"{i+1}. {paper['title']}"):
+                                    st.markdown(f"**作者**：{', '.join(paper['authors'])}")
+                                    st.markdown(f"**期刊**：{paper['journal']}")
+                                    st.markdown(f"**年份**：{paper['year']}")
+                                    st.markdown(f"**摘要**：{paper['abstract']}")
+                                    st.markdown(f"**链接**：[{paper['url']}]({paper['url']})")
+                else:
+                    st.warning("请输入搜索关键词")
+        
+        # 智能推荐参考文献
+        with st.expander("📚 智能推荐参考文献", expanded=False):
+            if st.session_state.doc_full_text:
+                st.info("基于您的文档内容，我们可以为您推荐相关的参考文献")
+                if st.button("推荐参考文献", use_container_width=True):
+                    with st.spinner("正在分析文档并推荐参考文献..."):
+                        # 提取文档关键词
+                        keywords = RE_KEYWORDS.findall(st.session_state.doc_full_text)
+                        if keywords:
+                            # 使用频率最高的前3个关键词
+                            top_keywords = pd.Series(keywords).value_counts().head(3).index.tolist()
+                            st.success(f"基于文档分析，推荐以下关键词的参考文献：{', '.join(top_keywords)}")
+                            
+                            for keyword in top_keywords:
+                                st.subheader(f"关键词：{keyword}")
+                                results, error = search_academic_papers(keyword, 3)
+                                if results:
+                                    for i, paper in enumerate(results):
+                                        st.markdown(f"{i+1}. **{paper['title']}** - {', '.join(paper['authors'])} ({paper['year']})")
+                                else:
+                                    st.info(f"未找到关于 '{keyword}' 的文献")
+                        else:
+                            st.info("无法从文档中提取关键词，请尝试手动搜索")
+            else:
+                st.info("请先上传并处理文档，我们将基于文档内容为您推荐参考文献")
+        
         # 底部提示
         st.caption("💡 所有文件仅在内存中生成，不会保存到服务器，关闭页面后自动清除，保障文档安全")
 
