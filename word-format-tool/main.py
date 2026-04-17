@@ -1853,59 +1853,6 @@ def main():
                     use_container_width=True
                 )
         
-        # ---------- 智能学术助手 ----------
-        st.divider()
-        st.subheader("🤖 智能学术助手", divider=True)
-        
-        # 学术文献搜索
-        with st.expander("🔍 学术文献搜索", expanded=False):
-            search_keyword = st.text_input("输入搜索关键词", placeholder="例如：人工智能、机器学习、深度学习等")
-            max_results = st.slider("搜索结果数量", 1, 10, 5)
-            
-            if st.button("开始搜索", use_container_width=True):
-                if search_keyword:
-                    with st.spinner("正在搜索学术文献..."):
-                        results, error = search_academic_papers(search_keyword, max_results)
-                        if error:
-                            st.error(f"搜索失败：{error}")
-                        else:
-                            st.success(f"找到 {len(results)} 篇相关文献")
-                            for i, paper in enumerate(results):
-                                with st.expander(f"{i+1}. {paper['title']}"):
-                                    st.markdown(f"**作者**：{', '.join(paper['authors'])}")
-                                    st.markdown(f"**期刊**：{paper['journal']}")
-                                    st.markdown(f"**年份**：{paper['year']}")
-                                    st.markdown(f"**摘要**：{paper['abstract']}")
-                                    st.markdown(f"**链接**：[{paper['url']}]({paper['url']})")
-                else:
-                    st.warning("请输入搜索关键词")
-        
-        # 智能推荐参考文献
-        with st.expander("📚 智能推荐参考文献", expanded=False):
-            if st.session_state.doc_full_text:
-                st.info("基于您的文档内容，我们可以为您推荐相关的参考文献")
-                if st.button("推荐参考文献", use_container_width=True):
-                    with st.spinner("正在分析文档并推荐参考文献..."):
-                        # 提取文档关键词
-                        keywords = RE_KEYWORDS.findall(st.session_state.doc_full_text)
-                        if keywords:
-                            # 使用频率最高的前3个关键词
-                            top_keywords = pd.Series(keywords).value_counts().head(3).index.tolist()
-                            st.success(f"基于文档分析，推荐以下关键词的参考文献：{', '.join(top_keywords)}")
-                            
-                            for keyword in top_keywords:
-                                st.subheader(f"关键词：{keyword}")
-                                results, error = search_academic_papers(keyword, 3)
-                                if results:
-                                    for i, paper in enumerate(results):
-                                        st.markdown(f"{i+1}. **{paper['title']}** - {', '.join(paper['authors'])} ({paper['year']})")
-                                else:
-                                    st.info(f"未找到关于 '{keyword}' 的文献")
-                        else:
-                            st.info("无法从文档中提取关键词，请尝试手动搜索")
-            else:
-                st.info("请先上传并处理文档，我们将基于文档内容为您推荐参考文献")
-        
         # 底部提示
         st.caption("💡 所有文件仅在内存中生成，不会保存到服务器，关闭页面后自动清除，保障文档安全")
 
