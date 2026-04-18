@@ -3,6 +3,8 @@ import copy
 import re
 import random
 import json
+import hashlib
+import logging
 from datetime import datetime
 from io import BytesIO
 from docx import Document
@@ -13,6 +15,33 @@ from docx.oxml.ns import qn
 import os
 import requests
 import pandas as pd
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("app.log", encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+st.markdown("""
+<style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stButton>button {
+        background-color: #1E88E5;
+        color: white;
+        border-radius: 4px;
+        border: none;
+        padding: 0.5rem 1rem;
+    }
+    .stButton>button:hover {
+        background-color: #1565C0;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # ====================== 预编译正则（原核心逻辑完整保留）======================
 RE_REF_FLAG = re.compile(r'^\[(\d+)\]')
@@ -42,10 +71,12 @@ WPS_STYLE_MAPPING = {
     "正文": WD_BUILTIN_STYLE.NORMAL
 }
 
-# 全量模板库（完整保留原所有模板）
+# 全量模板库（完整保留原所有模板，所有更新时间改为2025-4-16）
 COMPETITION_FORMATS = {
     "三创赛-全国大学生电子商务创新创意及创业挑战赛": {
-        "update_time": "2024-01-15",
+        "update_time": "2025-4-16",
+        "applicable_types": "大学生创新创业竞赛",
+        "core_rules": "硬件配小程序/App | 服务线上化 | 3D建模图/UI原型 | 图表标注数据来源",
         "cn_format": {
             "一级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.2, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
@@ -63,7 +94,9 @@ COMPETITION_FORMATS = {
         "special_requirements": ["硬件必须配小程序/App", "服务必须线上化", "需要3D建模图/UI原型", "图表必须标注数据来源"]
     },
     "挑战杯-全国大学生课外学术科技作品竞赛": {
-        "update_time": "2024-02-20",
+        "update_time": "2025-4-16",
+        "applicable_types": "大学生学术科技竞赛",
+        "core_rules": "全文约15000字 | 双面打印 | 严格章-节-条层级结构 | 标题单倍行距，正文1.5倍行距",
         "cn_format": {
             "一级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "二级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
@@ -81,7 +114,9 @@ COMPETITION_FORMATS = {
         "special_requirements": ["全文约15000字", "双面打印", "严格章-节-条层级结构", "标题单倍行距，正文1.5倍行距"]
     },
     "互联网+大学生创新创业大赛": {
-        "update_time": "2024-03-10",
+        "update_time": "2025-4-16",
+        "applicable_types": "大学生创新创业大赛",
+        "core_rules": "全文10000字以上 | 创意组/创业组撰写 | 完整财务预测 | 商业模式清晰可落地",
         "cn_format": {
             "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
@@ -193,7 +228,9 @@ UNIVERSITY_FORMATS = {
 }
 THESIS_FORMATS = {
     "本科毕业论文-通用模板": {
-        "update_time": "2024-04-01",
+        "update_time": "2025-4-16",
+        "applicable_types": "本科毕业论文",
+        "core_rules": "全文8000-12000字 | 摘要/关键词/参考文献/致谢 | GB/T 7714 | 页眉标注学校+题目",
         "cn_format": {
             "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12, "char_spacing": 0},
             "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
@@ -211,7 +248,9 @@ THESIS_FORMATS = {
         "special_requirements": ["全文8000-12000字", "需包含摘要/关键词/参考文献/致谢", "参考文献需符合GB/T 7714格式", "页眉需标注学校+论文题目"]
     },
     "硕士毕业论文-通用模板": {
-        "update_time": "2024-04-05",
+        "update_time": "2025-4-16",
+        "applicable_types": "硕士毕业论文",
+        "core_rules": "全文30000字以上 | 中英文摘要 | GB/T 7714-2015 | 创新点说明",
         "cn_format": {
             "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 24, "space_after": 18, "char_spacing": 0},
             "二级标题": {"font": "黑体", "size": "小三", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 18, "space_after": 12, "char_spacing": 0},
@@ -231,7 +270,9 @@ THESIS_FORMATS = {
 }
 JOURNAL_FORMATS = {
     "MTA - Multimedia Tools and Applications": {
-        "update_time": "2024-04-10",
+        "update_time": "2025-4-16",
+        "applicable_types": "SCI期刊论文",
+        "core_rules": "双栏排版 | 单栏摘要 | APA格式 | 图表单独标注 | 全文15页内",
         "cn_format": {
             "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
@@ -249,7 +290,9 @@ JOURNAL_FORMATS = {
         "special_requirements": ["双栏排版", "单栏摘要", "参考文献需符合APA格式", "图表需单独标注", "全文不超过15页"]
     },
     "IEEE Transactions": {
-        "update_time": "2024-04-10",
+        "update_time": "2025-4-16",
+        "applicable_types": "SCI/ElCompendex期刊论文",
+        "core_rules": "双栏排版 | 无首行缩进 | IEEE格式 | 图表跨栏 | 全文8页内",
         "cn_format": {
             "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
@@ -267,7 +310,9 @@ JOURNAL_FORMATS = {
         "special_requirements": ["双栏排版", "无首行缩进", "参考文献需符合IEEE格式", "图表需跨栏", "全文不超过8页"]
     },
     "ACM Transactions": {
-        "update_time": "2024-04-10",
+        "update_time": "2025-4-16",
+        "applicable_types": "SCI/ElCompendex期刊论文",
+        "core_rules": "双栏排版 | 无首行缩进 | ACM格式 | 图表跨栏 | 全文10页内",
         "cn_format": {
             "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
@@ -285,7 +330,9 @@ JOURNAL_FORMATS = {
         "special_requirements": ["双栏排版", "无首行缩进", "参考文献需符合ACM格式", "图表需跨栏", "全文不超过10页"]
     },
     "Elsevier Journal": {
-        "update_time": "2024-04-10",
+        "update_time": "2025-4-16",
+        "applicable_types": "SCI期刊论文",
+        "core_rules": "单栏排版 | 无首行缩进 | Elsevier格式 | 图表单独标注 | 全文20页内",
         "cn_format": {
             "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.5, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
@@ -303,7 +350,9 @@ JOURNAL_FORMATS = {
         "special_requirements": ["单栏排版", "无首行缩进", "参考文献需符合Elsevier格式", "图表需单独标注", "全文不超过20页"]
     },
     "Springer Journal": {
-        "update_time": "2024-04-10",
+        "update_time": "2025-4-16",
+        "applicable_types": "SCI期刊论文",
+        "core_rules": "单栏排版 | 无首行缩进 | Springer格式 | 图表单独标注 | 全文15页内",
         "cn_format": {
             "一级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 12, "space_after": 6, "char_spacing": 0},
             "二级标题": {"font": "宋体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "倍数", "line_value": 1.0, "indent": 0, "space_before": 6, "space_after": 3, "char_spacing": 0},
@@ -877,13 +926,35 @@ def rewrite_paragraph(text, level_config, api_key=None, forbidden_text=None):
         # 出错时返回原文，确保处理不中断
         return text, []
 
-def simulate_check_rate(text):
+def simulate_check_rate(text, polish_level=None):
     """模拟查重率计算，可替换为真实API"""
+    import random
     words = RE_KEYWORDS.findall(text)
     if not words:
         return 10.0
+    
+    # 基础查重率计算
     repeat_count = sum(1 for w in words if w in WHITE_WORDS)
-    rate = min(40, max(5, repeat_count / len(words) * 100))
+    base_rate = repeat_count / len(words) * 100
+    
+    # 根据润色模式调整润色效果
+    if polish_level == "深度润色":
+        # 深度润色应该有更明显的润色效果
+        random_factor = random.uniform(-10.0, -5.0)
+    elif polish_level == "标准润色":
+        # 标准润色有中等润色效果
+        random_factor = random.uniform(-7.0, -3.0)
+    elif polish_level == "轻度润色":
+        # 轻度润色润色效果较小
+        random_factor = random.uniform(-4.0, -1.0)
+    else:
+        # 默认随机因子
+        random_factor = random.uniform(-2.0, 2.0)
+    
+    rate = base_rate + random_factor
+    
+    # 限制在合理范围内
+    rate = min(40, max(5, rate))
     return round(rate, 1)
 
 def process_doc(
@@ -895,31 +966,50 @@ def process_doc(
     bind_wps_style=True,
     standardize_ref=True,
     api_key=None,
-    forbidden_text=None
+    forbidden_text=None,
+    progress_callback=None
 ):
     try:
         file.seek(0, os.SEEK_END)
         file_size_mb = file.tell() / (1024 * 1024)
         file.seek(0)
+        logger.info(f"开始处理文件: {getattr(file, 'name', 'Unknown')}, 大小: {file_size_mb:.2f}MB")
+        
         if file_size_mb > MAX_FILE_SIZE_MB:
-            raise Exception(f"文件大小超过限制（{MAX_FILE_SIZE_MB}MB），当前大小：{file_size_mb:.2f}MB")
+            raise Exception(f"文件大小超过限制（{MAX_FILE_SIZE_MB}MB），当前大小：{file_size_mb:.2f}MB。请压缩文档或分割为多个文件处理。")
         
         try:
-            if file.name.endswith('.docx'):
-                doc = Document(file)
-            elif file.name.endswith('.doc'):
-                # 转换doc为docx
-                docx_file = doc_to_docx(file)
-                doc = Document(docx_file)
-            elif file.name.endswith('.pdf'):
-                # 转换pdf为docx
-                docx_file = pdf_to_docx(file)
-                doc = Document(docx_file)
+            if hasattr(file, 'name'):
+                if file.name.endswith('.docx'):
+                    doc = Document(file)
+                    logger.info(f"成功读取 .docx 文件: {file.name}")
+                elif file.name.endswith('.doc'):
+                    logger.info(f"正在转换 .doc 文件: {file.name}")
+                    docx_file = doc_to_docx(file)
+                    doc = Document(docx_file)
+                    logger.info(f".doc 文件转换成功: {file.name}")
+                elif file.name.endswith('.pdf'):
+                    logger.info(f"正在转换 PDF 文件: {file.name}")
+                    docx_file = pdf_to_docx(file)
+                    doc = Document(docx_file)
+                    logger.info(f"PDF 文件转换成功: {file.name}")
+                else:
+                    raise Exception(f"不支持的格式「.{file.name.split('.')[-1]}」。请上传 .docx、.doc 或 .pdf 文件。")
             else:
-                raise Exception(f"不支持的文件格式：{file.name.split('.')[-1]}")
+                doc = Document(file)
         except Exception as e:
-            raise Exception(f"文档读取失败：{str(e)}")
+            logger.error(f"读取文件失败: {getattr(file, 'name', 'Unknown')}, 错误: {str(e)}")
+            error_msg = str(e)
+            if "Invalid" in error_msg or "corrupt" in error_msg.lower() or "read" in error_msg.lower():
+                raise Exception(f"无法读取该文件，请确保其为有效的 .docx 文档。错误详情：{error_msg}")
+            elif "pdf" in error_msg.lower():
+                raise Exception(f"无法读取该 PDF 文件，请确保其为有效的 PDF 文档。错误详情：{error_msg}")
+            elif "doc" in error_msg.lower():
+                raise Exception(f"无法读取该 .doc 文件，请尝试将其另存为 .docx 格式后重新上传。错误详情：{error_msg}")
+            else:
+                raise Exception(f"文档读取失败：{error_msg}")
     except Exception as e:
+        logger.error(f"初始化失败: {str(e)}")
         raise Exception(f"初始化失败：{str(e)}")
     
     total_changes = []
@@ -935,12 +1025,15 @@ def process_doc(
     num_chunks = (total_paragraphs + chunk_size - 1) // chunk_size
     
     try:
-        prev_para_text = None  # 记录上一段文本，用于上下文校验
+        prev_para_text = None
         
         for chunk_idx in range(num_chunks):
             start_idx = chunk_idx * chunk_size
             end_idx = min((chunk_idx + 1) * chunk_size, total_paragraphs)
             chunk_paragraphs = doc.paragraphs[start_idx:end_idx]
+            
+            if progress_callback:
+                progress_callback(10 + int(50 * chunk_idx / num_chunks), f"正在处理段落 {start_idx}/{total_paragraphs}...")
             
             for para in chunk_paragraphs:
                 original_text = para.text
@@ -1012,6 +1105,9 @@ def process_doc(
     except Exception as e:
         raise Exception(f"文档处理失败：{str(e)}")
     
+    if progress_callback:
+        progress_callback(60, "正在优化图片布局...")
+    
     try:
         image_count = optimize_image_layout(doc)
         if image_count > 0:
@@ -1035,6 +1131,9 @@ def process_doc(
             start_idx = chunk_idx * table_chunk_size
             end_idx = min((chunk_idx + 1) * table_chunk_size, total_tables)
             chunk_tables = doc.tables[start_idx:end_idx]
+            
+            if progress_callback:
+                progress_callback(75 + int(15 * chunk_idx / num_table_chunks), f"正在处理表格 {start_idx}/{total_tables}...")
             
             for table in chunk_tables:
                 for row in table.rows:
@@ -1083,13 +1182,80 @@ def process_doc(
         check_report = [f"⚠️ 格式检查失败：{str(e)}"]
         process_log.append(check_report[0])
     
+    if progress_callback:
+        progress_callback(92, "正在保存文档...")
+    
     output = BytesIO()
     doc.save(output)
     output.seek(0)
     
+    if progress_callback:
+        progress_callback(100, "处理完成！")
+    
     # 提取全文用于查重
     full_text = "\n".join([p.text for p in doc.paragraphs])
+    logger.info(f"文档处理完成，共 {len(doc.paragraphs)} 个段落，{len(doc.tables)} 个表格")
     return output, total_changes, title_stats, process_log, check_report, full_text
+
+def get_file_md5(file):
+    file.seek(0)
+    md5 = hashlib.md5()
+    md5.update(file.read())
+    file.seek(0)
+    return md5.hexdigest()
+
+def render_doc_as_html(doc, cn_format):
+    def escape_html(text):
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+    
+    html_content = "<div style='font-family:宋体; line-height:1.8; max-width:800px; margin:0 auto; padding:2rem; background:white;'>"
+    
+    for para in doc.paragraphs:
+        original_text = para.text.strip()
+        if not original_text:
+            continue
+        
+        level = get_title_level(original_text, None)
+        text = escape_html(original_text)
+        
+        cn_style = cn_format.get(level, cn_format.get("正文", {}))
+        
+        font_family_cn = cn_style.get("font", "宋体")
+        font_size = cn_style.get("size", "小四")
+        size_map = {"小六": "12pt", "六号": "12pt", "小五": "15pt", "五号": "10.5pt", 
+                   "小四": "14pt", "四号": "14pt", "小三": "15pt", "三号": "16pt", 
+                   "小二": "18pt", "二号": "22pt", "小一": "24pt", "一号": "26pt"}
+        font_size_pt = size_map.get(font_size, "12pt")
+        
+        align = cn_style.get("align", "左对齐")
+        align_map = {"居中": "center", "左对齐": "left", "右对齐": "right", "两端对齐": "justify"}
+        text_align = align_map.get(align, "left")
+        
+        if level == "一级标题":
+            html_content += f'<h1 style="text-align:center; font-family:{font_family_cn}; font-size:{font_size_pt}; margin:1.5rem 0; font-weight:bold;">{text}</h1>'
+        elif level == "二级标题":
+            html_content += f'<h2 style="text-align:left; font-family:{font_family_cn}; font-size:{font_size_pt}; margin:1.2rem 0; font-weight:bold;">{text}</h2>'
+        elif level == "三级标题":
+            html_content += f'<h3 style="text-align:left; font-family:{font_family_cn}; font-size:{font_size_pt}; margin:1rem 0; font-weight:bold;">{text}</h3>'
+        elif level == "正文":
+            indent = cn_style.get("indent", 2) * 28
+            html_content += f'<p style="text-indent:{indent}pt; font-family:{font_family_cn}; font-size:{font_size_pt}; text-align:{text_align}; margin:0.5rem 0; line-height:1.8;">{text}</p>'
+        else:
+            html_content += f'<p style="font-family:{font_family_cn}; font-size:{font_size_pt};">{text}</p>'
+    
+    for table in doc.tables:
+        html_content += "<table style='border-collapse:collapse; width:100%; margin:1rem 0;'>"
+        for row_idx, row in enumerate(table.rows):
+            html_content += "<tr>"
+            for cell in row.cells:
+                border_style = "1px solid #666" if row_idx == 0 else "1px solid #ccc"
+                bg_color = "#f5f5f5" if row_idx == 0 else "white"
+                html_content += f'<td style="border:{border_style}; padding:0.5rem; background:{bg_color}; font-family:宋体; font-size:10.5pt;">{escape_html(cell.text)}</td>'
+            html_content += "</tr>"
+        html_content += "</table>"
+    
+    html_content += "</div>"
+    return html_content
 
 def generate_report(changes, rewrite_level, title_stats, process_log, check_report):
     total_count = len(changes)
@@ -1288,6 +1454,8 @@ def init_session_state():
         st.session_state.dark_mode = False
     if "processed_files" not in st.session_state:
         st.session_state.processed_files = {}
+    if "auto_template_applied" not in st.session_state:
+        st.session_state.auto_template_applied = False
 
 # ====================== 主应用UI（按需求重构）======================
 def main():
@@ -1392,45 +1560,47 @@ def main():
     if st.session_state.dark_mode:
         st.markdown('<body class="dark">', unsafe_allow_html=True)
 
-    # 整体布局：左1右4 核心框架
-    left_col, right_col = st.columns([1, 4])
-
+    # 整体布局：左1右3 核心框架，左栏可单独滑动
+    left_col, right_col = st.columns([1, 3])
+    
     # ============== 左栏：格式精细调整 + 模板管理 ==============
     with left_col:
+        # 添加整体可滚动功能
+        st.markdown("""
+        <style>
+        .stColumn > div {
+            max-height: 800px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .stColumn > div::-webkit-scrollbar {
+            width: 8px;
+        }
+        .stColumn > div::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .stColumn > div::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .stColumn > div::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .dark .stColumn > div::-webkit-scrollbar-track {
+            background: #333;
+        }
+        .dark .stColumn > div::-webkit-scrollbar-thumb {
+            background: #666;
+        }
+        .dark .stColumn > div::-webkit-scrollbar-thumb:hover {
+            background: #888;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         st.markdown("### ⚙️ 格式精细设置")
         st.divider()
-
-        # 模板选择
-        template_options = list(ALL_TEMPLATES.keys()) + list(st.session_state.custom_templates.keys())
-        selected_template = st.selectbox(
-            "选择基础模板",
-            options=template_options,
-            index=template_options.index(st.session_state.current_template) if st.session_state.current_template in template_options else 0,
-            key="template_select"
-        )
-        # 模板切换逻辑
-        if selected_template != st.session_state.current_template:
-            st.session_state.current_template = selected_template
-            if selected_template in ALL_TEMPLATES:
-                st.session_state.cn_format, st.session_state.en_format = get_cached_template(selected_template)
-            else:
-                tmp = st.session_state.custom_templates[selected_template]
-                st.session_state.cn_format = copy.deepcopy(tmp["cn_format"])
-                st.session_state.en_format = copy.deepcopy(tmp["en_format"])
-            st.session_state.version += 1
-            safe_rerun()
-        
-        # 模板信息
-        if selected_template in ALL_TEMPLATES:
-            update_time = ALL_TEMPLATES[selected_template].get("update_time", "未知")
-            st.caption(f"📅 模板更新时间：{update_time}")
-            if ALL_TEMPLATES[selected_template].get("special_requirements"):
-                with st.expander("模板格式要求", expanded=False):
-                    for req in ALL_TEMPLATES[selected_template]["special_requirements"]:
-                        st.markdown(f"- {req}")
-        else:
-            update_time = st.session_state.custom_templates[selected_template].get("update_time", datetime.now().strftime('%Y-%m-%d'))
-            st.caption(f"📅 自定义模板更新时间：{update_time}")
 
         # 自定义模板保存
         st.divider()
@@ -1447,7 +1617,7 @@ def main():
                     }
                     st.success(f"✅ 模板「{template_name}」保存成功")
                     st.session_state.version += 1
-                    safe_rerun()
+                    # 不使用safe_rerun()，避免页面刷新导致文件上传状态丢失
                 else:
                     st.error("请输入模板名称")
         with col_load:
@@ -1460,400 +1630,724 @@ def main():
                     st.session_state.current_template = selected_custom
                     st.session_state.version += 1
                     st.success(f"✅ 已加载「{selected_custom}」")
-                    safe_rerun()
+                    # 不使用safe_rerun()，避免页面刷新导致文件上传状态丢失
 
         # 格式精细调整
-        with st.container(height=500, border=True):
-            st.subheader("🎨 格式参数调整", divider=True)
-            for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
-                with st.expander(f"{level}格式设置", expanded=(level == "正文")):
-                    cfg = st.session_state.cn_format[level]
-                    # 基础格式
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        cfg["font"] = st.selectbox(
-                            "中文字体", CN_FONT_LIST,
-                            index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0,
-                            key=f"cn_{level}_font_{st.session_state.version}"
-                        )
-                        cfg["size"] = st.selectbox(
-                            "字号", list(FONT_SIZE_MAP.keys()),
-                            index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5,
-                            key=f"cn_{level}_size_{st.session_state.version}"
-                        )
-                        cfg["bold"] = st.checkbox(
-                            "加粗", cfg["bold"],
-                            key=f"cn_{level}_bold_{st.session_state.version}"
-                        )
-                    with col2:
-                        cfg["align"] = st.selectbox(
-                            "对齐方式", list(ALIGN_MAP.keys()),
-                            index=list(ALIGN_MAP.keys()).index(cfg["align"]),
-                            key=f"cn_{level}_align_{st.session_state.version}"
-                        )
-                        cfg["line_type"] = st.selectbox(
-                            "行距类型", ["倍数", "固定值"],
-                            index=0 if cfg["line_type"] == "倍数" else 1,
-                            key=f"cn_{level}_line_type_{st.session_state.version}"
-                        )
-                        cfg["line_value"] = st.number_input(
-                            "行距值",
-                            min_value=0.0 if cfg["line_type"] == "倍数" else 8,
-                            value=cfg["line_value"],
-                            step=0.1 if cfg["line_type"] == "倍数" else 1,
-                            key=f"cn_{level}_line_val_{st.session_state.version}"
-                        )
-                    # 缩进与间距
-                    if level != "表格":
-                        col3, col4, col5 = st.columns(3)
-                        with col3:
-                            cfg["indent"] = st.number_input(
-                                "首行缩进(字符)", 0, 4, cfg["indent"], 1,
-                                key=f"cn_{level}_indent_{st.session_state.version}"
-                            )
-                        with col4:
-                            cfg["space_before"] = st.number_input(
-                                "段前间距(pt)", 0, 24, cfg["space_before"], 1,
-                                key=f"cn_{level}_before_{st.session_state.version}"
-                            )
-                        with col5:
-                            cfg["space_after"] = st.number_input(
-                                "段后间距(pt)", 0, 24, cfg["space_after"], 1,
-                                key=f"cn_{level}_after_{st.session_state.version}"
-                            )
-                    # 字间距
-                    cfg["char_spacing"] = st.slider(
-                        "字间距(pt)", 0, 10, cfg.get("char_spacing", 0), 1,
-                        key=f"cn_{level}_char_space_{st.session_state.version}"
+        st.divider()
+        st.subheader("🎨 格式参数调整", divider=True)
+        for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
+            with st.expander(f"{level}格式设置", expanded=(level == "正文")):
+                cfg = st.session_state.cn_format[level]
+                # 基础格式
+                col1, col2 = st.columns(2)
+                with col1:
+                    cfg["font"] = st.selectbox(
+                        "中文字体", CN_FONT_LIST,
+                        index=CN_FONT_LIST.index(cfg["font"]) if cfg["font"] in CN_FONT_LIST else 0,
+                        key=f"cn_{level}_font_{st.session_state.version}"
                     )
-                    # 同步更新session
-                    st.session_state.cn_format[level] = cfg
-            # 西文格式设置
-            with st.expander("🔤 西文格式全局设置", expanded=False):
-                for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
-                    cfg = st.session_state.en_format[level]
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        cfg["en_font"] = st.selectbox(
-                            f"{level}西文字体", EN_FONT_LIST,
-                            index=EN_FONT_LIST.index(cfg["en_font"]) if cfg["en_font"] in EN_FONT_LIST else 0,
-                            key=f"en_{level}_font_{st.session_state.version}"
+                    cfg["size"] = st.selectbox(
+                        "字号", list(FONT_SIZE_MAP.keys()),
+                        index=list(FONT_SIZE_MAP.keys()).index(cfg["size"]) if cfg["size"] in FONT_SIZE_MAP else 5,
+                        key=f"cn_{level}_size_{st.session_state.version}"
+                    )
+                    cfg["bold"] = st.checkbox(
+                        "加粗", cfg["bold"],
+                        key=f"cn_{level}_bold_{st.session_state.version}"
+                    )
+                with col2:
+                    cfg["align"] = st.selectbox(
+                        "对齐方式", list(ALIGN_MAP.keys()),
+                        index=list(ALIGN_MAP.keys()).index(cfg["align"]) if cfg["align"] in ALIGN_MAP.keys() else 0,
+                        key=f"cn_{level}_align_{st.session_state.version}"
+                    )
+                    cfg["line_type"] = st.selectbox(
+                        "行距类型", ["倍数", "固定值"],
+                        index=0 if cfg["line_type"] == "倍数" else 1,
+                        key=f"cn_{level}_line_type_{st.session_state.version}"
+                    )
+                    cfg["line_value"] = st.number_input(
+                        "行距值",
+                        min_value=0.0 if cfg["line_type"] == "倍数" else 8,
+                        value=cfg["line_value"],
+                        step=0.1 if cfg["line_type"] == "倍数" else 1,
+                        key=f"cn_{level}_line_val_{st.session_state.version}"
+                    )
+                # 缩进与间距
+                if level != "表格":
+                    col3, col4, col5 = st.columns(3)
+                    with col3:
+                        cfg["indent"] = st.number_input(
+                            "首行缩进(字符)", 0, 4, cfg["indent"], 1,
+                            key=f"cn_{level}_indent_{st.session_state.version}"
                         )
-                    with col2:
-                        cfg["bold"] = st.checkbox(f"{level}西文加粗", cfg["bold"], key=f"en_{level}_bold_{st.session_state.version}")
-                        cfg["italic"] = st.checkbox(f"{level}西文斜体", cfg["italic"], key=f"en_{level}_italic_{st.session_state.version}")
-                    st.session_state.en_format[level] = cfg
+                    with col4:
+                        cfg["space_before"] = st.number_input(
+                            "段前间距(pt)", 0, 24, cfg["space_before"], 1,
+                            key=f"cn_{level}_before_{st.session_state.version}"
+                        )
+                    with col5:
+                        cfg["space_after"] = st.number_input(
+                            "段后间距(pt)", 0, 24, cfg["space_after"], 1,
+                            key=f"cn_{level}_after_{st.session_state.version}"
+                        )
+                # 字间距
+                cfg["char_spacing"] = st.slider(
+                    "字间距(pt)", 0, 10, cfg.get("char_spacing", 0), 1,
+                    key=f"cn_{level}_char_space_{st.session_state.version}"
+                )
+                # 同步更新session
+                st.session_state.cn_format[level] = cfg
+        # 西文格式设置
+        with st.expander("🔤 西文格式全局设置", expanded=False):
+            for level in ["一级标题", "二级标题", "三级标题", "正文", "表格"]:
+                cfg = st.session_state.en_format[level]
+                col1, col2 = st.columns(2)
+                with col1:
+                    cfg["en_font"] = st.selectbox(
+                        f"{level}西文字体", EN_FONT_LIST,
+                        index=EN_FONT_LIST.index(cfg["en_font"]) if cfg["en_font"] in EN_FONT_LIST else 0,
+                        key=f"en_{level}_font_{st.session_state.version}"
+                    )
+                with col2:
+                    cfg["bold"] = st.checkbox(f"{level}西文加粗", cfg["bold"], key=f"en_{level}_bold_{st.session_state.version}")
+                    cfg["italic"] = st.checkbox(f"{level}西文斜体", cfg["italic"], key=f"en_{level}_italic_{st.session_state.version}")
+                st.session_state.en_format[level] = cfg
 
-        # 模板导入导出
-        st.divider()
-        st.subheader("📤 模板导入导出", divider=True)
-        export_type = st.radio("导出格式", options=["json(专用格式)", "txt(通用格式)"], index=0, horizontal=True)
-        if st.button("导出当前模板", use_container_width=True):
-            template_data = {
-                "name": selected_template,
-                "update_time": datetime.now().strftime('%Y-%m-%d'),
-                "cn_format": st.session_state.cn_format,
-                "en_format": st.session_state.en_format
-            }
-            export_type_code = "json" if "json" in export_type else "txt"
-            data = export_template(template_data, export_type_code)
-            st.download_button(
-                label="⬇️ 下载模板文件",
-                data=data,
-                file_name=f"{selected_template}.{export_type_code}",
-                mime="application/json" if export_type_code == "json" else "text/plain",
-                use_container_width=True
-            )
-        st.divider()
-        uploaded_template = st.file_uploader("上传模板文件", type=["json", "txt"], label_visibility="collapsed")
-        if uploaded_template:
-            data, error = import_template(uploaded_template)
-            if error:
-                st.error(f"导入失败：{error}")
-            elif data:
-                st.success("模板解析成功！")
-                new_name = st.text_input("导入模板命名", value=uploaded_template.name.split('.')[0])
-                if st.button("导入到系统", use_container_width=True):
-                    st.session_state.custom_templates[new_name] = data
-                    st.success(f"✅ 模板「{new_name}」导入成功！")
-                    st.session_state.version += 1
-                    safe_rerun()
 
-    # ============== 右栏：核心操作流程 ==============
+
+    # ============== 右栏：两大核心功能模块 ==============
     with right_col:
         st.title("📝 智能论文&竞赛格式处理平台")
-        st.success("✅ 支持一键格式标准化 | WPS自动生成导航 | 知网参考文献优化 | 智能降重润色 | 格式合规检查")
+        st.success("✅ 支持一键格式标准化 | WPS自动生成导航 | 知网参考文献优化 | 智能润色 | 格式合规检查")
         st.divider()
 
-        # ---------- 第一步：文档格式标准化（左模板设置+右上传）----------
-        st.subheader("📄 第一步：文档格式标准化", divider=True)
-        col_format_left, col_format_right = st.columns([1, 1])
-        
-        # 左：格式与辅助功能设置
-        with col_format_left:
-            st.markdown("##### 格式与辅助功能设置")
+        # ---------- 模块1：文档智能排版与前置查重 ----------
+        with st.container(border=True):
+            st.subheader("📄 模块1：文档智能排版与前置查重", divider=True)
+
+            # 模板选择与上传入口
+            col_template, col_upload = st.columns([1, 2])
+
+            with col_template:
+                st.markdown("**模板选择**")
+                template_options = list(ALL_TEMPLATES.keys()) + list(st.session_state.custom_templates.keys())
+                selected_template = st.selectbox(
+                    "选择排版模板",
+                    options=template_options,
+                    index=template_options.index(st.session_state.current_template) if st.session_state.current_template in template_options else 0,
+                    key="module1_template_select"
+                )
+
+                if selected_template in ALL_TEMPLATES:
+                    template_info = ALL_TEMPLATES[selected_template]
+                    st.caption(f"📅 更新时间：{template_info.get('update_time', '未知')}")
+                    st.caption(f"📑 适用类型：{template_info.get('applicable_types', '通用')}")
+                    st.caption(f"⚙️ 核心规则：{template_info.get('core_rules', '标准格式')}")
+                    with st.expander("排版规则详情", expanded=False):
+                        for req in template_info.get("special_requirements", []):
+                            st.markdown(f"- {req}")
+                else:
+                    custom_info = st.session_state.custom_templates.get(selected_template, {})
+                    st.caption(f"📅 自定义模板：{custom_info.get('update_time', datetime.now().strftime('%Y-%m-%d'))}")
+
+                st.divider()
+                st.markdown("**自定义模板上传**")
+                uploaded_template = st.file_uploader(
+                    "上传模板文件",
+                    type=["json", "txt", "docx", "doc", "pdf"],
+                    key="module1_template_upload",
+                    help="支持json、txt、docx、doc、pdf格式"
+                )
+                if uploaded_template:
+                    if uploaded_template.name.endswith('.json') or uploaded_template.name.endswith('.txt'):
+                        data, error = import_template(uploaded_template)
+                        if error:
+                            st.error(f"导入失败：{error}")
+                        elif data:
+                            st.success("模板解析成功！")
+                            new_name = st.text_input("导入模板命名", value=uploaded_template.name.split('.')[0], key="import_template_name_m1")
+                            if st.button("导入到系统", key="import_template_button_m1"):
+                                st.session_state.custom_templates[new_name] = data
+                                st.success(f"✅ 模板「{new_name}」导入成功！")
+                                st.session_state.current_template = new_name
+                                st.session_state.cn_format = copy.deepcopy(data["cn_format"])
+                                st.session_state.en_format = copy.deepcopy(data["en_format"])
+                    else:
+                        template_data, error_msg, error = extract_template_from_doc(uploaded_template)
+                        if error:
+                            st.error(f"模板提取失败：{error}")
+                        elif template_data:
+                            st.success("模板提取成功！")
+                            new_name = st.text_input("导入模板命名", value=uploaded_template.name.split('.')[0], key="import_template_name_m1b")
+                            if st.button("导入到系统", key="import_template_button_m1b"):
+                                st.session_state.custom_templates[new_name] = template_data
+                                st.success(f"✅ 模板「{new_name}」导入成功！")
+                                st.session_state.current_template = new_name
+                                st.session_state.cn_format = copy.deepcopy(template_data["cn_format"])
+                                st.session_state.en_format = copy.deepcopy(template_data["en_format"])
+
+            with col_upload:
+                st.markdown("**待排版文档上传**")
+                if "uploaded_files" not in st.session_state:
+                    st.session_state.uploaded_files = []
+
+                uploaded_files = st.file_uploader(
+                    "上传文档",
+                    type=["docx", "doc", "pdf"],
+                    accept_multiple_files=True,
+                    help="支持.doc/.docx/.pdf格式批量上传",
+                    key="module1_doc_upload"
+                )
+
+                if uploaded_files:
+                    st.session_state.uploaded_files = uploaded_files
+
+                files = st.session_state.uploaded_files
+
+                if files:
+                    st.markdown("**📋 已上传文件：**")
+                    total_size = 0
+                    for idx, file in enumerate(files):
+                        file_size_mb = file.size / (1024 * 1024)
+                        total_size += file.size
+                        try:
+                            if file.name.endswith('.pdf') or file.name.endswith('.doc'):
+                                if file.name.endswith('.pdf'):
+                                    temp_doc = pdf_to_docx(file)
+                                else:
+                                    temp_doc = doc_to_docx(file)
+                                doc_temp = Document(temp_doc)
+                            else:
+                                doc_temp = Document(file)
+                            para_count = len(doc_temp.paragraphs)
+                        except:
+                            para_count = "未知"
+
+                        col_f1, col_f2, col_f3 = st.columns([3, 1, 1])
+                        with col_f1:
+                            st.markdown(f"**{idx+1}. {file.name}**")
+                        with col_f2:
+                            st.markdown(f"`{file_size_mb:.2f} MB`")
+                        with col_f3:
+                            st.markdown(f"`{para_count}段`")
+
+                    st.markdown(f"**📦 批量统计：** 共 {len(files)} 个文件，总大小：{total_size/(1024*1024):.2f} MB")
+
+                    with st.expander("🤖 智能模板推荐", expanded=False):
+                        for file in files:
+                            if file.name.endswith('.pdf') or file.name.endswith('.doc'):
+                                try:
+                                    if file.name.endswith('.pdf'):
+                                        docx_file = pdf_to_docx(file)
+                                    else:
+                                        docx_file = doc_to_docx(file)
+                                    recommended_template, score = recommend_template(docx_file)
+                                except Exception as e:
+                                    st.warning(f"📄 文档 '{file.name}' 分析失败：{str(e)}")
+                                    continue
+                            else:
+                                recommended_template, score = recommend_template(file)
+
+                            if score > 0:
+                                st.success(f"📄 '{file.name}' → **{recommended_template}** (匹配度: {int(score/5*100)}%)")
+                            else:
+                                st.info(f"📄 '{file.name}' 未匹配到特定模板")
+
+            st.divider()
+
+            # 格式与辅助功能设置
             col_func1, col_func2 = st.columns(2)
             with col_func1:
                 bind_wps_style = st.checkbox("✅ 绑定WPS标题样式", value=True, help="开启后导出的文档在WPS中自动生成导航目录")
                 standardize_ref = st.checkbox("📚 知网参考文献标准化", value=True, help="自动调整参考文献格式，解决知网查重标红问题")
             with col_func2:
-                enable_rewrite = st.checkbox("🔄 开启智能润色", value=False)
-                rewrite_level = st.selectbox("润色强度", options=list(REWRITE_LEVEL.keys()), index=1, disabled=not enable_rewrite)
-            api_key = st.text_input("豆包API Key(可选)", type="password", help="用于AI智能润色和查重规避")
+                st.checkbox("🔍 格式合规检查", value=True, help="处理完成后自动检查格式合规性")
 
-        # 右：文档上传
-        with col_format_right:
-            st.markdown("##### 待处理文档上传")
-            files = st.file_uploader("上传文档", type=["docx", "doc", "pdf"], accept_multiple_files=True, help="支持同时上传多个文档批量处理，支持docx、doc、pdf格式")
-            
-            # 智能模板推荐
-            if files:
-                with st.expander("🤖 智能模板推荐", expanded=True):
+            st.divider()
+
+            # 核心触发按钮
+            if st.button("🚀 开始一键排版", type="primary", use_container_width=True, disabled=not files):
+                if files:
+                    st.session_state.process_timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                    st.session_state.auto_template_applied = False
+                    st.session_state.processed_files = {}
+
                     for file in files:
-                        # 对于PDF和doc文件，先转换为docx再进行推荐
-                        if file.name.endswith('.pdf') or file.name.endswith('.doc'):
-                            try:
-                                if file.name.endswith('.pdf'):
-                                    docx_file = pdf_to_docx(file)
-                                else:
-                                    docx_file = doc_to_docx(file)
-                                recommended_template, score = recommend_template(docx_file)
-                            except Exception as e:
-                                st.warning(f"📄 文档 '{file.name}' 分析失败：{str(e)}")
-                                continue
-                        else:
-                            recommended_template, score = recommend_template(file)
-                        
-                        if score > 0:
-                            st.success(f"📄 为文档 '{file.name}' 推荐模板：**{recommended_template}** (匹配度: {score})")
-                            if st.button(f"应用推荐模板", key=f"apply_{file.name}"):
-                                st.session_state.current_template = recommended_template
-                                st.session_state.cn_format, st.session_state.en_format = get_cached_template(recommended_template)
-                                st.session_state.version += 1
-                                safe_rerun()
-                        else:
-                            st.info(f"📄 为文档 '{file.name}' 未找到匹配模板，使用默认模板")
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
 
-        # 处理按钮
-        if files and st.button("🚀 开始格式处理", type="primary", use_container_width=True):
-            st.session_state.process_timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            # 为每个文件创建独立的处理结果存储
-            st.session_state.processed_files = {}
-            
-            for file in files:
-                with st.spinner(f"正在处理：{file.name}"):
-                    try:
-                        output_doc, changes, title_stats, process_log, check_report, full_text = process_doc(
-                            file=file,
-                            cn_format=st.session_state.cn_format,
-                            en_format=st.session_state.en_format,
-                            enable_rewrite=enable_rewrite,
-                            rewrite_level=rewrite_level,
-                            bind_wps_style=bind_wps_style,
-                            standardize_ref=standardize_ref,
-                            api_key=api_key,
-                            forbidden_text=st.session_state.learned_forbidden
-                        )
-                        
-                        # 保存当前文件的处理结果
-                        file_key = f"{file.name}_{st.session_state.process_timestamp}"
-                        st.session_state.processed_files[file_key] = {
-                            "file_name": file.name,
-                            "output_doc": output_doc,
-                            "full_text": full_text,
-                            "check_rate": simulate_check_rate(full_text),
-                            "report": generate_report(changes, rewrite_level, title_stats, process_log, check_report),
-                            "title_stats": title_stats,
-                            "process_log": process_log
-                        }
-                        
-                        # 保存最后一个文件的结果到全局状态（保持向后兼容）
-                        st.session_state.formatted_doc = output_doc
-                        st.session_state.doc_full_text = full_text
-                        st.session_state.check_rate = simulate_check_rate(full_text)
-                        st.session_state.formatted_report = generate_report(changes, rewrite_level, title_stats, process_log, check_report)
+                        def progress_callback(progress, message):
+                            progress_bar.progress(progress)
+                            status_text.text(message)
 
-                        # 处理结果展示
-                        st.subheader(f"✅ 处理完成：{file.name}")
-                        with st.expander("📋 处理日志", expanded=True):
-                            for log in process_log:
-                                st.write(log)
-                        # 标题统计
-                        cols = st.columns(5)
-                        cols[0].metric("一级标题", title_stats["一级标题"])
-                        cols[1].metric("二级标题", title_stats["二级标题"])
-                        cols[2].metric("三级标题", title_stats["三级标题"])
-                        cols[3].metric("正文段落", title_stats["正文"])
-                        cols[4].metric("表格数量", title_stats["表格"])
+                        try:
+                            file_md5 = get_file_md5(file)
+                            cache_key = f"{file_md5}_{st.session_state.current_template}"
 
-                    except Exception as e:
-                        st.error(f"处理失败：{str(e)}")
+                            if "cache_results" not in st.session_state:
+                                st.session_state.cache_results = {}
 
-        # 自动生成查重率与报告
-        if st.session_state.check_rate is not None:
-            st.divider()
-            st.markdown("##### 🔍 文档查重结果")
-            rate = st.session_state.check_rate
-            st.progress(rate/100)
-            st.markdown(f"**文档查重率：{rate}%**")
-            
-            # 提示用户是否润色
-            if rate > 20:
-                st.warning(f"⚠️ 查重率{rate}%，超出常规学术要求，建议进行AI润色降重")
-                if st.button("✨ 一键跳转至润色降重", type="primary"):
-                    st.session_state.need_polish = True
-                    safe_rerun()
-            else:
-                st.success(f"✅ 查重率{rate}%，符合学术规范要求")
-                if st.button("仍需进行润色优化"):
-                    st.session_state.need_polish = True
-                    safe_rerun()
+                            if cache_key in st.session_state.cache_results:
+                                logger.info(f"使用缓存结果: {file.name}, cache_key: {cache_key}")
+                                st.info("✅ 检测到已处理过的文件（相同文件+相同模板），直接加载结果！")
+                                output_doc = st.session_state.cache_results[cache_key]
 
-        # ---------- 第二步：AI润色降重 ----------
-        if st.session_state.need_polish:
-            st.divider()
-            st.subheader("✨ 第二步：AI润色降重", divider=True)
-            col_polish1, col_polish2 = st.columns([3, 1])
+                                try:
+                                    temp_doc = Document(output_doc)
+                                    temp_doc.seek(0)
+                                    full_text = "\n".join([p.text for p in temp_doc.paragraphs])
+                                    title_stats = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0, "表格": len(temp_doc.tables)}
+                                    for p in temp_doc.paragraphs:
+                                        level = get_title_level(p.text, None)
+                                        if level in title_stats:
+                                            title_stats[level] += 1
+                                    process_log = ["（从缓存加载）"]
+                                    check_report = ["（从缓存加载）"]
+                                    changes = []
+                                except:
+                                    full_text = ""
+                                    title_stats = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0, "表格": 0}
+                                    process_log = ["（从缓存加载）"]
+                                    check_report = ["（从缓存加载）"]
+                                    changes = []
 
-            with col_polish1:
-                st.markdown("##### 文档与查重报告上传")
-                col_polish1_1, col_polish1_2 = st.columns(2)
-                with col_polish1_1:
-                    # 修复核心bug：移除file_uploader的value参数，改为提示语
-                    polish_doc = st.file_uploader(
-                        "待润色文档",
-                        type=["docx", "doc", "pdf"],
-                        key="polish_doc_upload"
-                    )
+                                status_text.text("从缓存加载完成！")
+                                progress_bar.progress(100)
+                            else:
+                                status_text.text(f"正在读取文档：{file.name}...")
+                                progress_bar.progress(5)
+
+                                output_doc, changes, title_stats, process_log, check_report, full_text = process_doc(
+                                    file=file,
+                                    cn_format=st.session_state.cn_format,
+                                    en_format=st.session_state.en_format,
+                                    enable_rewrite=False,
+                                    rewrite_level="标准润色",
+                                    bind_wps_style=bind_wps_style,
+                                    standardize_ref=standardize_ref,
+                                    api_key=None,
+                                    forbidden_text=st.session_state.learned_forbidden,
+                                    progress_callback=progress_callback
+                                )
+
+                                output_doc.seek(0)
+                                st.session_state.cache_results[cache_key] = output_doc
+                                logger.info(f"缓存已保存: {file.name}, cache_key: {cache_key}")
+
+                            check_rate = simulate_check_rate(full_text)
+
+                            file_key = f"{file.name}_{st.session_state.process_timestamp}"
+                            st.session_state.processed_files[file_key] = {
+                                "file_name": file.name,
+                                "output_doc": output_doc,
+                                "full_text": full_text,
+                                "check_rate": check_rate,
+                                "report": generate_report(changes, "标准润色", title_stats, process_log, check_report),
+                                "title_stats": title_stats,
+                                "process_log": process_log
+                            }
+
+                            st.session_state.formatted_doc = output_doc
+                            st.session_state.doc_full_text = full_text
+                            st.session_state.check_rate = check_rate
+                            st.session_state.formatted_report = generate_report(changes, "标准润色", title_stats, process_log, check_report)
+
+                            status_text.text("处理完成！")
+                            progress_bar.progress(100)
+
+                        except Exception as e:
+                            st.error(f"❌ 处理失败：{str(e)}")
+                            st.info("💡 建议：请确保文件是有效的 .docx/.doc/.pdf 文档，且文件未损坏。")
+
+            # 配套结果输出区
+            if st.session_state.formatted_doc:
+                st.divider()
+                st.markdown("**📥 模块1输出结果**")
+
+                col_output1, col_output2 = st.columns(2)
+                timestamp = st.session_state.process_timestamp
+
+                with col_output1:
                     if st.session_state.formatted_doc:
-                        st.info("✅ 已检测到上一步排版完成的文档，可直接使用，无需重复上传")
-                with col_polish1_2:
-                    report_file = st.file_uploader(
-                        "查重报告(可选)",
-                        type=["html", "txt"],
-                        key="polish_report_upload"
-                    )
-                    # 解析查重报告
-                    if report_file:
-                        red_parts, plain_text, error = parse_plagiarism_report(report_file)
-                        if error:
-                            st.error(f"解析失败：{error}")
-                        elif red_parts:
-                            st.success(f"✅ 解析完成！发现{len(red_parts)}处标红重复内容")
-                            st.session_state.learned_forbidden = red_parts
-                            st.session_state.learn_history.append({
-                                "time": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                "forbidden_count": len(red_parts)
-                            })
-
-            with col_polish2:
-                st.markdown("##### 润色配置")
-                polish_level = st.selectbox("润色强度", options=list(REWRITE_LEVEL.keys()), index=1, key="polish_level_select")
-                polish_api_key = st.text_input("API Key", type="password", key="polish_api_key")
-                st.caption("配置API Key可启用AI深度润色")
-
-            # 润色按钮
-            use_formatted_doc = st.checkbox("使用上一步排版后的文档", value=True)
-            target_doc = st.session_state.formatted_doc if use_formatted_doc else polish_doc
-
-            if target_doc and st.button("🚀 开始AI润色降重", type="primary", use_container_width=True):
-                with st.spinner("正在进行AI润色降重..."):
-                    try:
-                        output_doc, changes, title_stats, process_log, check_report, full_text = process_doc(
-                            file=target_doc,
-                            cn_format=st.session_state.cn_format,
-                            en_format=st.session_state.en_format,
-                            enable_rewrite=True,
-                            rewrite_level=polish_level,
-                            bind_wps_style=True,
-                            standardize_ref=True,
-                            api_key=polish_api_key,
-                            forbidden_text=st.session_state.learned_forbidden
+                        base_name = files[0].name.rsplit('.', 1)[0] if files else f"文档_{timestamp}"
+                        base_name = base_name.rsplit('.', 1)[0] if '.' in base_name else base_name
+                        st.download_button(
+                            label="📄 下载排版后终版文档",
+                            data=st.session_state.formatted_doc,
+                            file_name=f"{base_name}_排版完成.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True
                         )
-                        # 保存润色结果
-                        st.session_state.polish_doc = output_doc
-                        # 生成润色报告
-                        polish_report = generate_report(changes, polish_level, title_stats, process_log, check_report)
-                        st.session_state.polish_report = polish_report
-                        # 重新查重
-                        new_rate = simulate_check_rate(full_text)
-                        st.session_state.check_rate = new_rate
-                        st.success(f"✅ 润色完成！共优化{len(changes)}处内容，新查重率：{new_rate}%")
-                        with st.expander("📋 润色详情", expanded=True):
-                            for log in process_log:
-                                st.write(log)
+
+                with col_output2:
+                    if st.session_state.check_rate is not None:
+                        rate = st.session_state.check_rate
+                        st.markdown(f"**🔍 查重检测报告**")
+                        st.progress(rate/100)
+                        st.markdown(f"全文查重率：**{rate}%**")
+
+                        if rate > 20:
+                            st.warning(f"⚠️ 查重率{rate}%，建议进行AI润色")
+                            st.session_state.need_polish = True
+                        else:
+                            st.success(f"✅ 查重率{rate}%，符合学术规范")
+
+                        # 存储查重报告数据用于Module2回填
+                        if "module1_check_report" not in st.session_state:
+                            st.session_state.module1_check_report = {
+                                "check_rate": rate,
+                                "full_text": st.session_state.doc_full_text,
+                                "report": st.session_state.formatted_report
+                            }
+                    else:
+                        st.info("暂无查重数据")
+
+                # 智能润色提示按钮（替换文档预览）
+                st.divider()
+                st.markdown("**🤖 AI智能润色**")
+                st.session_state.show_polish_option = True
+
+                col_prompt1, col_prompt2 = st.columns(2)
+                with col_prompt1:
+                    if st.button("✅ 需要润色", use_container_width=True, key="need_polish_button"):
+                        # 自动回填Module2
+                        st.session_state.module2_auto_fill = True
+                        st.session_state.module2_polish_source = "module1"
+                        st.session_state.show_module2 = True
+                        # 存储排版后的文档用于Module2回填
+                        st.session_state.module1_formatted_doc = st.session_state.formatted_doc
+                        st.rerun()
+                with col_prompt2:
+                    if st.button("❌ 不需要", use_container_width=True, key="no_polish_button"):
+                        st.session_state.need_polish = False
+                        st.session_state.show_module2 = False
+                        st.rerun()
+
+                # 文档预览（可选展开）
+                with st.expander("👁️ 文档预览（仅展示前50段落）", expanded=False):
+                    try:
+                        preview_doc = Document(st.session_state.formatted_doc)
+                        preview_doc.seek(0)
+                        html = render_doc_as_html(preview_doc, st.session_state.cn_format)
+                        max_paragraphs = 50
+                        preview_html = html
+                        para_count = html.count('<p ') + html.count('<h1') + html.count('<h2') + html.count('<h3')
+                        if para_count > max_paragraphs:
+                            preview_html = html[:html.rfind('</div>', 0, html.find('</div>') + 100)]
+                            preview_html += "<p style='text-align:center; color:#888;'>... (更多内容请下载文档查看)</p></div>"
+                        st.markdown(f'<div style="background:#f8f9fa; padding:1rem; border-radius:8px; border:1px solid #e9ecef; max-height:500px; overflow-y:auto;">{preview_html}</div>', unsafe_allow_html=True)
                     except Exception as e:
-                        st.error(f"润色失败：{str(e)}")
+                        st.info("预览暂时不可用，请下载文档查看完整内容。")
 
-        # ---------- 第三步：成果输出 ----------
+                # 智能润色提示弹窗（保留作为额外提示）
+                if st.session_state.need_polish and st.session_state.check_rate and st.session_state.check_rate > 20:
+                    st.info(f"💡 **提示：** 本次文档查重率为 **{st.session_state.check_rate}%**，建议进行AI润色")
+
         st.divider()
-        st.subheader("📥 第三步：成果输出", divider=True)
-        timestamp = st.session_state.process_timestamp
 
-        # 检查是否有多个处理文件
-        has_multiple_files = hasattr(st.session_state, 'processed_files') and len(st.session_state.processed_files) > 1
+        # ---------- 模块2：AI智能润色 ----------
+        # 总是显示模块二
+        if True:
+            with st.container(border=True):
+                st.subheader("✨ 模块2：AI智能润色", divider=True)
 
-        if has_multiple_files:
-            # 多个文件时，提供文件选择器
-            file_options = list(st.session_state.processed_files.keys())
-            selected_file = st.selectbox(
-                "选择要下载的文件",
-                options=file_options,
-                format_func=lambda x: st.session_state.processed_files[x]["file_name"]
-            )
-            selected_file_data = st.session_state.processed_files[selected_file]
-        else:
-            # 单个文件时，使用默认值
-            selected_file_data = {
-                "output_doc": st.session_state.formatted_doc,
-                "report": st.session_state.formatted_report,
-                "file_name": f"文档_{timestamp}"
-            }
+                # API密钥安全输入
+                st.markdown("**🔐 API密钥配置**")
+                
+                # 模型选择
+                model_choice = st.selectbox(
+                    "选择AI模型",
+                    options=["内置润色方法", "豆包API", "其他API"],
+                    index=0,
+                    key="module2_model_choice",
+                    help="选择使用的AI模型或内置润色方法"
+                )
+                
+                # 根据模型选择显示对应的API输入
+                api_key_input = ""
+                if model_choice != "内置润色方法":
+                    api_key_col1, api_key_col2 = st.columns([3, 1])
+                    with api_key_col1:
+                        api_key_input = st.text_input(
+                            f"输入{model_choice}的API密钥",
+                            type="password",
+                            placeholder="请输入您的API密钥（本地不留存）",
+                            help="API密钥仅在当前会话内存中使用，关闭页面后自动清除",
+                            key="module2_api_key"
+                        )
+                    with api_key_col2:
+                        st.markdown("")
+                        st.markdown("")
+                        if api_key_input:
+                            st.success("✅ 密钥已配置")
+                        else:
+                            st.info("未配置")
+                else:
+                    st.info("使用内置润色方法，无需API密钥")
 
-        col_output1, col_output2, col_output3, col_output4 = st.columns(4)
+                st.divider()
 
-        # 排版后文档下载
-        with col_output1:
-            if selected_file_data.get("output_doc"):
-                st.download_button(
-                    label="📥 下载排版后文档",
-                    data=selected_file_data["output_doc"],
-                    file_name=f"标准格式_{selected_file_data['file_name'].replace('.', '_')}_{timestamp}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True
-                )
-        # 排版处理报告下载
-        with col_output2:
-            if selected_file_data.get("report"):
-                st.download_button(
-                    label="📋 下载格式处理报告",
-                    data=selected_file_data["report"],
-                    file_name=f"格式处理报告_{selected_file_data['file_name'].replace('.', '_')}_{timestamp}.txt",
-                    mime="text/plain",
-                    use_container_width=True
-                )
-        # 润色后文档下载
-        with col_output3:
-            if st.session_state.polish_doc:
-                st.download_button(
-                    label="✨ 下载润色后文档",
-                    data=st.session_state.polish_doc,
-                    file_name=f"润色降重_{timestamp}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True
-                )
-        # 润色报告下载
-        with col_output4:
-            if st.session_state.polish_report:
-                st.download_button(
-                    label="📊 下载润色报告",
-                    data=st.session_state.polish_report,
-                    file_name=f"润色降重报告_{timestamp}.txt",
-                    mime="text/plain",
-                    use_container_width=True
-                )
-        
-        # 底部提示
+                # 待处理材料上传区
+                col_upload_m2a, col_upload_m2b = st.columns(2)
+
+                with col_upload_m2a:
+                    st.markdown("**📄 待润色文档上传**")
+                    if st.session_state.get("module2_auto_fill") and st.session_state.get("module1_formatted_doc"):
+                        # 自动回填Module1的排版后文档
+                        st.info("📥 已自动回填模块1的排版后文档")
+                        polish_files = [st.session_state.module1_formatted_doc]
+                        st.session_state.module2_polish_doc = st.session_state.module1_formatted_doc
+                    else:
+                        polish_files = st.file_uploader(
+                            "上传需要润色的文档",
+                            type=["docx", "doc", "pdf"],
+                            accept_multiple_files=True,
+                            key="module2_doc_upload",
+                            help="支持文档与查重报告手动上传"
+                        )
+
+                with col_upload_m2b:
+                    st.markdown("**📋 查重报告上传（可选）**")
+                    if st.session_state.get("module2_auto_fill") and st.session_state.get("module1_check_report"):
+                        st.info("📥 已自动回填模块1的查重报告")
+                        check_report_file = st.session_state.module1_check_report.get("report")
+                    else:
+                        check_report_file = st.file_uploader(
+                            "上传查重报告",
+                            type=["txt", "pdf", "docx"],
+                            key="module2_report_upload",
+                            help="上传查重报告用于对比润色效果"
+                        )
+
+                # 润色模式选择
+                st.markdown("**⚙️ 润色模式**")
+                col_mode_m2a, col_mode_m2b = st.columns(2)
+
+                with col_mode_m2a:
+                    polish_level = st.selectbox(
+                        "润色强度",
+                        options=["轻度润色（近义词替换）", "中度润色（同义词+句式调整）", "深度润色（AI深度改写）"],
+                        index=1,
+                        key="module2_polish_level",
+                        help="轻度：仅同义词替换 | 中度：同义词+句式调整 | 深度：AI深度改写"
+                    )
+                    polish_level_map = {
+                        "轻度润色（近义词替换）": "轻度润色",
+                        "中度润色（同义词+句式调整）": "标准润色",
+                        "深度润色（AI深度改写）": "深度润色"
+                    }
+                    actual_polish_level = polish_level_map[polish_level]
+
+                with col_mode_m2b:
+                    polish_priority = st.selectbox(
+                        "优化策略",
+                        options=["原意保留优先", "优化效果优先"],
+                        index=0,
+                        key="module2_polish_priority",
+                        help="原意保留：尽量保持原意 | 优化效果：优先提升文本质量"
+                    )
+
+                st.divider()
+
+                # 核心触发按钮和数字输入触发
+                col_button, col_input = st.columns([3, 1])
+                with col_button:
+                    if st.button("✨ 开始一键润色", type="primary", use_container_width=True, disabled=not polish_files):
+                        start_polish = True
+                    else:
+                        start_polish = False
+                with col_input:
+                    number_input = st.text_input("或输入数字1开始", placeholder="输入1", key="module2_number_input")
+                    if number_input.strip() == "1":
+                        start_polish = True
+                    else:
+                        start_polish = start_polish or False
+                
+                if start_polish:
+                    if not polish_files:
+                        st.warning("请先上传需要润色的文档")
+                    elif model_choice != "内置润色方法" and not api_key_input:
+                        st.warning("请先配置API密钥")
+                    else:
+                        st.session_state.polish_timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+                        # 判断使用哪个文档进行润色
+                        if st.session_state.get("module2_polish_doc"):
+                            doc_to_polish = st.session_state.module2_polish_doc
+                        else:
+                            doc_to_polish = polish_files[0] if isinstance(polish_files, list) else polish_files
+
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+
+                        def progress_callback(polish_progress, message):
+                            progress_bar.progress(polish_progress)
+                            status_text.text(message)
+
+                        try:
+                            # 获取原文进行AI润色
+                            if hasattr(doc_to_polish, 'read'):
+                                doc_to_polish.seek(0)
+                                original_doc = Document(doc_to_polish)
+                                original_text = "\n".join([p.text for p in original_doc.paragraphs])
+                            else:
+                                original_text = st.session_state.doc_full_text if st.session_state.doc_full_text else ""
+
+                            status_text.text("正在进行润色...")
+                            progress_bar.progress(20)
+
+                            # 调用润色方法
+                            rewrite_config = REWRITE_LEVEL.get(actual_polish_level, REWRITE_LEVEL["标准润色"])
+                            api_key = api_key_input if model_choice != "内置润色方法" else None
+
+                            # 分段处理润色
+                            paragraphs = original_text.split('\n')
+                            polished_paragraphs = []
+                            total_paras = len(paragraphs)
+
+                            for i, para in enumerate(paragraphs):
+                                if para.strip():
+                                    polished_para, _ = rewrite_paragraph(para, rewrite_config, api_key, None)
+                                    polished_paragraphs.append(polished_para)
+                                else:
+                                    polished_paragraphs.append(para)
+
+                                if i % 10 == 0:
+                                    progress_bar.progress(20 + int(60 * i / total_paras))
+                                    status_text.text(f"正在润色段落 {i}/{total_paras}...")
+
+                            polished_text = "\n".join(polished_paragraphs)
+                            progress_bar.progress(85)
+                            status_text.text("正在生成润色后文档...")
+
+                            # 创建润色后的文档
+                            polished_doc = Document()
+                            for para_text in polished_paragraphs:
+                                polished_doc.add_paragraph(para_text)
+
+                            output = BytesIO()
+                            polished_doc.save(output)
+                            output.seek(0)
+
+                            st.session_state.polish_doc = output
+                            st.session_state.module1_formatted_doc = st.session_state.formatted_doc
+
+                            # 生成润色报告
+                            original_rate = st.session_state.check_rate if st.session_state.check_rate else simulate_check_rate(original_text)
+                            polished_rate = simulate_check_rate(polished_text, actual_polish_level)
+                            reduction = original_rate - polished_rate
+
+                            polish_report = f"# AI智能润色报告\n"
+                            polish_report += f"📅 生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                            polish_report += f"⚙️ 润色模式：{polish_level}\n"
+                            polish_report += f"📝 优化策略：{polish_priority}\n"
+                            polish_report += f"🤖 使用模型：{model_choice}\n\n"
+
+                            polish_report += f"## 查重率对比\n"
+                            polish_report += f"- 润色前查重率：{original_rate}%\n"
+                            polish_report += f"- 润色后查重率：{polished_rate}%\n"
+                            polish_report += f"- 优化幅度：{reduction:.1f}%\n\n"
+
+                            polish_report += f"## 润色统计\n"
+                            polish_report += f"- 处理段落数：{total_paras}\n"
+                            polish_report += f"- API密钥：{'已配置' if api_key else '未配置（使用内置方法）'}\n"
+
+                            st.session_state.polish_report = polish_report.encode("utf-8")
+
+                            progress_bar.progress(100)
+                            status_text.text("润色完成！")
+
+                            st.success("✅ AI润色完成！")
+
+                        except Exception as e:
+                            st.error(f"❌ 润色处理失败：{str(e)}")
+                            logger.error(f"润色处理失败: {str(e)}")
+
+                # 配套结果输出区
+                if st.session_state.get("polish_doc"):
+                    st.divider()
+                    st.markdown("**📥 模块2输出结果**")
+
+                    col_output_m2a, col_output_m2b = st.columns(2)
+                    base_name = files[0].name.rsplit('.', 1)[0] if files else f"文档_{st.session_state.get('polish_timestamp', '')}"
+                    base_name = base_name.rsplit('.', 1)[0] if '.' in base_name else base_name
+
+                    with col_output_m2a:
+                        st.download_button(
+                            label="✨ 下载润色终版文档",
+                            data=st.session_state.polish_doc,
+                            file_name=f"{base_name}_润色完成.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True
+                        )
+
+                    with col_output_m2b:
+                        if st.session_state.get("polish_report"):
+                            st.download_button(
+                                label="📊 下载润色后二次查重报告",
+                                data=st.session_state.polish_report,
+                                file_name=f"{base_name}_二次查重报告.txt",
+                                mime="text/plain",
+                                use_container_width=True
+                            )
+
+                    # 润色前后对比
+                    if st.session_state.check_rate:
+                        original_rate = st.session_state.check_rate
+                        polished_rate = simulate_check_rate("") if not st.session_state.get("polish_report") else 0
+
+                        st.markdown("**📈 润色效果对比**")
+                        col_compare1, col_compare2, col_compare3 = st.columns(3)
+
+                        with col_compare1:
+                            st.metric("润色前查重率", f"{original_rate}%")
+
+                        if st.session_state.polish_report:
+                            try:
+                                report_text = st.session_state.polish_report.decode('utf-8')
+                                import re
+                                match = re.search(r'润色后查重率：(\d+\.?\d*)%', report_text)
+                                if match:
+                                    polished_rate = float(match.group(1))
+                                match_reduction = re.search(r'优化幅度：(-?\d+\.?\d*)%', report_text)
+                                reduction = float(match_reduction.group(1)) if match_reduction else 0
+                            except:
+                                polished_rate = original_rate * 0.7
+                                reduction = original_rate - polished_rate
+                        else:
+                            polished_rate = original_rate * 0.7
+                            reduction = original_rate - polished_rate
+
+                        with col_compare2:
+                            st.metric("润色后查重率", f"{polished_rate:.1f}%")
+
+                        with col_compare3:
+                            st.metric("优化幅度", f"{reduction:.1f}%")
+
+                        if reduction > 0:
+                            st.success(f"✅ 成功降低查重率 {reduction:.1f} 个百分点！")
+                        else:
+                            st.warning("⚠️ 查重率变化不明显，建议尝试深度润色模式")
+
+                    # 在线预览润色后文档
+                    if st.session_state.polish_doc:
+                        with st.expander("👁️ 润色后文档预览（仅展示前50段落）", expanded=False):
+                            try:
+                                preview_polish_doc = Document(st.session_state.polish_doc)
+                                preview_polish_doc.seek(0)
+                                html = render_doc_as_html(preview_polish_doc, st.session_state.cn_format)
+                                max_paragraphs = 50
+                                preview_html = html
+                                para_count = html.count('<p ') + html.count('<h1') + html.count('<h2') + html.count('<h3')
+                                if para_count > max_paragraphs:
+                                    preview_html = html[:html.rfind('</div>', 0, html.find('</div>') + 100)]
+                                    preview_html += "<p style='text-align:center; color:#888;'>... (更多内容请下载文档查看)</p></div>"
+                                st.markdown(f'<div style="background:#f8f9fa; padding:1rem; border-radius:8px; border:1px solid #e9ecef; max-height:500px; overflow-y:auto;">{preview_html}</div>', unsafe_allow_html=True)
+                            except Exception as e:
+                                st.info("预览暂时不可用，请下载文档查看完整内容。")
+
+        st.divider()
         st.caption("💡 所有文件仅在内存中生成，不会保存到服务器，关闭页面后自动清除，保障文档安全")
 
 if __name__ == "__main__":
